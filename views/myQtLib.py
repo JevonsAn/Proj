@@ -69,10 +69,6 @@ class MainWindow(QtGui.QMainWindow):
     #         self.close()
 
 
-
-
-
-
     def center(self):
         screen = QtGui.QDesktopWidget().screenGeometry()
         size = self.geometry()
