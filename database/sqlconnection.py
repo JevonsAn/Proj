@@ -1,12 +1,8 @@
 import pymysql
+from database.db_setting import db_setting
 
 
 class Mysql(object):
-
-    db = 0
-    cursor = 0
-    n_exe = 0
-    n_commit = 0
 
     def __init__(self):
         self.db = 0
@@ -19,7 +15,8 @@ class Mysql(object):
     def openSQL(self):
         # 打开数据库连接
         self.db = pymysql.connect(
-            host="localhost", user="root", passwd="1q2w3e4r", db="nis_website", charset='UTF8')
+            host=db_setting["dbHost"], user=db_setting["dbUser"], passwd=db_setting["dbPwd"],
+            db=db_setting["dbName"], charset='UTF8')
         # 使用cursor()方法获取操作游标
         self.cursor = self.db.cursor()
         # print("数据库连接成功", self.db, flush=True)
