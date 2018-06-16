@@ -1,6 +1,6 @@
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
-
+from database.sqlquery import insert_user
 
 class MyButton(QtGui.QPushButton):
     def __init__(self, name, cl, tool_tip=""):
@@ -141,11 +141,7 @@ class MainWindow(QtGui.QMainWindow):
         self.myButton_insertUser.move(100, 360)
         create_user_component_list.append(self.myButton_insertUser)
 
-        def insert_user(cl):
-            pass
-
-        self.myButton_insertUser.connect(QtCore.SIGNAL("clicked()"), insert_user)
-
+        self.connect(self.myButton_insertUser, QtCore.SIGNAL("clicked()"), self.insert_user)
 
         self.all_component["create_user"] = create_user_component_list
         for x in create_user_component_list:
@@ -162,3 +158,20 @@ class MainWindow(QtGui.QMainWindow):
         screen = QtGui.QDesktopWidget().screenGeometry()
         size = self.geometry()
         self.move((screen.width() - size.width()) / 2, (screen.height() - size.height()) / 2)
+
+    def insert_user(self):
+        userType = self.myLineEdit_userType.text()
+        userName = self.myLineEdit_userName.text()
+        gasUnit = self.myLineEdit_gasUnit.text()
+        userUnit = self.myLineEdit_userUnit.text()
+        remark = self.myLineEdit_beizhu.text()
+        if userUnit and userName and gasUnit and userType:
+            res = insert_user(userType, userName, gasUnit, userUnit)
+            if res[0]:
+                print("success")
+            else:
+                print(res[1])
+        else:
+            print("you can't")
+
+

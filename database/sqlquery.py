@@ -16,14 +16,13 @@ def get_oneNews(newsType, idnews):
     return news
 
 
-def insert_news(newstype, newsTitle, newsContent, newsFabiaoren='null'):
+def insert_user(userType, userName, gasUnit, userUnit, remark=''):
     mysqlserver = Mysql()
     # mysqlserver.openSQL()
-    sql = "insert into news(type, title, content, fabiaoren) values('%s', '%s', '%s', '%s');"
+    sql = "INSERT INTO `data`.`user` (`userType`, `userName`, `gasUnit`, `userUnit`) VALUES (%s, %s, %s, %s);"
     res = [True, '']
     try:
-        mysqlserver.exe(sql,  (newstype, newsTitle,
-                               newsContent, newsFabiaoren))
+        mysqlserver.exe(sql, (userType, userName, gasUnit, userUnit))
         mysqlserver.commit()
     except Exception as e:
         res = [False, e]
