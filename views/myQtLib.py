@@ -1,3 +1,4 @@
+import time
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
 from database.sqlquery import insert_user
@@ -41,8 +42,35 @@ class MyLineEdit(QtGui.QLineEdit):
         self.resize(width, height)
 
 
+class MyComboBox(QtGui.QComboBox):
+    def __init__(self, items, parent=None):
+        """
+        :param items: 下拉菜单的内容
+        :param parent:
+        """
+        QtGui.QComboBox.__init__(self, parent)
+        width = view_setting['ComboBoxWidth']
+        height = view_setting['ComboBOxHeight']
+        self.resize(width, height)
+        self.addItems(items)
+
+
+# class MyCalendarWidget(QtGui.QCalendarWidget):
+#     def __init__(self, parent=None):
+#         QtGui.QCalendarWidget.__init__(self, parent)
+#         self.hide
+
+class MyDateEdit(QtGui.QDateEdit):
+    def __init__(self, parent=None, date=None):
+        QtGui.QDateEdit.__init__(self, parent)
+        width = view_setting['ComboBoxWidth']
+        height = view_setting['ComboBOxHeight']
+        self.resize(width, height)
+        self.setDate(QtCore.QDate.fromString(date, 'yyyy-MM-dd'))
+
+
 class MyWidget(QtGui.QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, ):
         QtGui.QWidget.__init__(self, parent)
         self.resize(1000, 600)
         # self.center()
@@ -93,6 +121,12 @@ class MainWindow(QtGui.QMainWindow):
         self.create_user_fuc()
         self.connect(create_user, QtCore.SIGNAL('triggered()'), self.display_create_user)
         user_menu.addAction(create_user)
+
+        insert_weather = QtGui.QAction('天气资料', self)
+        insert_weather.setStatusTip('天气资料')
+        self.insert_weather_fuc()
+        self.connect(insert_weather, QtCore.SIGNAL('triggered()'), self.display_insert_weather)
+        data_menu.addAction(insert_weather)
 
     def create_user_fuc(self):
         create_user_component_list = []
@@ -147,11 +181,80 @@ class MainWindow(QtGui.QMainWindow):
         for x in create_user_component_list:
             x.hide()
 
+    def insert_weather_fuc(self):
+        insert_weather_component_list = []
+
+        self.myLabel_date = MyLabel('日期：', self)
+        self.myLabel_date.move(100, 60)
+        insert_weather_component_list.append(self.myLabel_date)
+
+        # self.myComboBox_date = MyComboBox(['1996/1/2', '1996/1/27'], self)
+        # self.myComboBox_date.move(200, 60)
+        # insert_weather_component_list.append(self.myComboBox_date)
+
+        now_day = time.strftime("%Y-%m-%d", time.localtime())
+        self.myDateEdit_date = MyDateEdit(self, now_day)
+        self.myDateEdit_date.move(200, 60)
+        insert_weather_component_list.append(self.myDateEdit_date)
+
+        self.myLabel_maxTemperature = MyLabel('最高气温：', self)
+        self.myLabel_maxTemperature.move(100, 120)
+        insert_weather_component_list.append(self.myLabel_maxTemperature)
+
+        self.myLineEdit_maxTemperature = MyLineEdit(self)
+        self.myLineEdit_maxTemperature.move(200, 120)
+        insert_weather_component_list.append(self.myLineEdit_maxTemperature)
+
+        self.myLabel_maxTemperatureCentigrade = MyLabel('℃', self)
+        self.myLabel_maxTemperatureCentigrade.move(300, 120)
+        insert_weather_component_list.append(self.myLabel_maxTemperatureCentigrade)
+
+        self.myLabel_minTemperature = MyLabel('最低气温：', self)
+        self.myLabel_minTemperature.move(100, 180)
+        insert_weather_component_list.append(self.myLabel_minTemperature)
+
+        self.myLineEdit_minTemperature = MyLineEdit(self)
+        self.myLineEdit_minTemperature.move(200, 180)
+        insert_weather_component_list.append(self.myLineEdit_minTemperature)
+
+        self.myLabel_minTemperatureCentigrade = MyLabel('℃', self)
+        self.myLabel_minTemperatureCentigrade.move(300, 180)
+        insert_weather_component_list.append(self.myLabel_minTemperatureCentigrade)
+
+        self.myLabel_avgTemperature = MyLabel('平均气温：', self)
+        self.myLabel_avgTemperature.move(100, 240)
+        insert_weather_component_list.append(self.myLabel_avgTemperature)
+
+        self.myLineEdit_avgTemperature = MyLineEdit(self)
+        self.myLineEdit_avgTemperature.move(200, 240)
+        insert_weather_component_list.append(self.myLineEdit_avgTemperature)
+
+        self.myLabel_avgTemperatureCentigrade = MyLabel('℃', self)
+        self.myLabel_avgTemperatureCentigrade.move(300, 240)
+        insert_weather_component_list.append(self.myLabel_avgTemperatureCentigrade)
+
+        self.myButton_insertWeather = MyButton("确认", self)
+        self.myButton_insertWeather.move(100, 300)
+        insert_weather_component_list.append(self.myButton_insertWeather)
+
+        self.connect(self.myButton_insertWeather, QtCore.SIGNAL("clicked()"), self.insert_weather)
+
+        self.all_component["insert_weather"] = insert_weather_component_list
+        for x in insert_weather_component_list:
+            x.hide()
+
     def display_create_user(self):
         for k in self.all_component:
             for x in self.all_component[k]:
                 x.hide()
         for x in self.all_component["create_user"]:
+            x.show()
+
+    def display_insert_weather(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                x.hide()
+        for x in self.all_component['insert_weather']:
             x.show()
 
     def center(self):
@@ -174,4 +277,14 @@ class MainWindow(QtGui.QMainWindow):
         else:
             print("you can't")
 
+
+    def insert_weather(self):
+        date = self.myDateEdit_date.text()
+        maxTemperature = self.myLineEdit_maxTemperature.text()
+        minTemperature = self.myLineEdit_minTemperature.text()
+        avgTemperature = self.myLineEdit_avgTemperature.text()
+        if date and maxTemperature and minTemperature and avgTemperature:
+            pass
+        else:
+            print("you can't")
 
