@@ -2,19 +2,40 @@ from database.sqlconnection import Mysql
 from pymysql import IntegrityError
 
 
-def get_oneNews(newsType, idnews):
+def get_user(userType, userName):
     mysqlserver = Mysql()
-    sql = "select title, content, time, fabiaoren from nis_website.news where type='%s' and idnews=%d;"
-    mysqlserver.exe(sql,  (newsType, idnews))
-    news = {}
-    #print(mysqlserver.results(), flush=True)
+    sql = "SELECT gasUnit, userUnit FROM data.user where userType=%s and userName=%s;"
+    mysqlserver.exe(sql, (userType, userName))
+    user = {}
     for row in mysqlserver.results():
-        news['content'] = row[1]
-        news['title'] = row[0]
-        news['time'] = row[2]
-        news['fabiaoren'] = row[3]
+        user['gasUnit'] = row[0]
+        user['userUnit'] = row[1]
+        user["userType"] = userType
+        user["userName"] = userName
     mysqlserver.closeSQL()
-    return news
+    return user
+
+
+def get_all_userType():
+    mysqlserver = Mysql()
+    sql = "SELECT distinct userType FROM data.user;"
+    mysqlserver.exe(sql)
+    userTypes = []
+    for row in mysqlserver.results():
+        userTypes.append(row[0])
+    mysqlserver.closeSQL()
+    return userTypes
+
+
+def get_userNames_by_userType(userType):
+    mysqlserver = Mysql()
+    sql = "SELECT userName FROM data.user WHERE userType=%s;"
+    mysqlserver.exe(sql, (userType,))
+    userNames = []
+    for row in mysqlserver.results():
+        userNames.append(row[0])
+    mysqlserver.closeSQL()
+    return userNames
 
 
 def insert_user(userType, userName, gasUnit, userUnit, remark=''):
@@ -26,7 +47,7 @@ def insert_user(userType, userName, gasUnit, userUnit, remark=''):
         mysqlserver.exe(sql, (userType, userName, gasUnit, userUnit))
         mysqlserver.commit()
     except Exception as e:
-        res = [False, e]
+        res = [False, "数据库错误" + str(e)]
     finally:
         mysqlserver.closeSQL()
         return res
