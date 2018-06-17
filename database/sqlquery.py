@@ -1,4 +1,5 @@
 from database.sqlconnection import Mysql
+from pymysql import IntegrityError
 
 
 def get_oneNews(newsType, idnews):
@@ -29,3 +30,11 @@ def insert_user(userType, userName, gasUnit, userUnit, remark=''):
     finally:
         mysqlserver.closeSQL()
         return res
+
+
+def insert_weather(date, maxTemperature, minTemperature, avgTemperature):
+    mysqlserver = Mysql()
+    sql = 'INSERT INTO data.weather (date, max, min, ord) VALUES (%s, %s, %s, %s);'
+    mysqlserver.exe(sql, (date, maxTemperature, minTemperature, avgTemperature))
+    mysqlserver.commit()
+    mysqlserver.closeSQL()

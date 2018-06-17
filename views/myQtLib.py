@@ -1,7 +1,8 @@
 import time
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
-from control.user_operation import add_user
+from control.user_operation import add_user, add_weather, datetime_to_timestamp
+from pymysql import IntegrityError
 
 class MyButton(QtGui.QPushButton):
     def __init__(self, name, cl, tool_tip=""):
@@ -122,8 +123,8 @@ class MainWindow(QtGui.QMainWindow):
         self.connect(create_user, QtCore.SIGNAL('triggered()'), self.display_create_user)
         user_menu.addAction(create_user)
 
-        insert_weather = QtGui.QAction('天气资料', self)
-        insert_weather.setStatusTip('天气资料')
+        insert_weather = QtGui.QAction('录入天气', self)
+        insert_weather.setStatusTip('录入天气')
         self.insert_weather_fuc()
         self.connect(insert_weather, QtCore.SIGNAL('triggered()'), self.display_insert_weather)
         data_menu.addAction(insert_weather)
@@ -277,15 +278,24 @@ class MainWindow(QtGui.QMainWindow):
         else:
             print("you can't")
 
-
     def insert_weather(self):
         date = self.myDateEdit_date.text()
-        maxTemperature = self.myLineEdit_maxTemperature.text()
-        minTemperature = self.myLineEdit_minTemperature.text()
-        avgTemperature = self.myLineEdit_avgTemperature.text()
-        if date and maxTemperature and minTemperature and avgTemperature:
-            pass
-        else:
-            print("you can't")
-            # ddd
+        try:
+            maxTemperature = float(self.myLineEdit_maxTemperature.text())
+            minTemperature = float(self.myLineEdit_minTemperature.text())
+            avgTemperature = float(self.myLineEdit_avgTemperature.text())
+            if int(time.time()) < datetime_to_timestamp(date, '%Y/%m/%d'):
+                QtGui.QMessageBox.warning(self, "天气录入失败", "不能录入未来日期的天气", "确定")
+            elif date and maxTemperature and minTemperature and avgTemperature:
+                add_weather(date, maxTemperature, minTemperature, avgTemperature)
+                QtGui.QMessageBox.information(self, "天气录入成功", "天气录入成功", "确定")
+            else:
+                QtGui.QMessageBox.warning(self, "天气录入失败", "气温不能为空！", "确定")
+        except IntegrityError:
+            QtGui.QMessageBox.warning(self, "天气录入失败", "该日期的天气已被录入！", "确定")
+        except ValueError:
+            QtGui.QMessageBox.warning(self, "天气录入失败", "气温必须为数字！", "确定")
+        except Exception as e:
+            QtGui.QMessageBox.warning(self, "天气录入失败", "出现未知错误……", "确定")
+            raise e
 
