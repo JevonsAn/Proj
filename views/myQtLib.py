@@ -1,7 +1,7 @@
 import time
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
-from database.sqlquery import insert_user
+from control.user_operation import add_user
 
 class MyButton(QtGui.QPushButton):
     def __init__(self, name, cl, tool_tip=""):
@@ -269,7 +269,7 @@ class MainWindow(QtGui.QMainWindow):
         userUnit = self.myLineEdit_userUnit.text()
         remark = self.myLineEdit_beizhu.text()
         if userUnit and userName and gasUnit and userType:
-            res = insert_user(userType, userName, gasUnit, userUnit)
+            res = add_user(userType, userName, gasUnit, userUnit)
             if res[0]:
                 print("success")
             else:
