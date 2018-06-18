@@ -2,7 +2,7 @@ import time
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
-
+from control.user_operation import get_user_by_id, update_user
 from control.user_operation import add_weather, datetime_to_timestamp
 from pymysql import IntegrityError
 
@@ -54,7 +54,7 @@ class MyComboBox(QtGui.QComboBox):
         """
         QtGui.QComboBox.__init__(self, parent)
         width = view_setting['ComboBoxWidth']
-        height = view_setting['ComboBOxHeight']
+        height = view_setting['ComboBoxHeight']
         self.resize(width, height)
         self.addItems(items)
 
@@ -68,10 +68,17 @@ class MyDateEdit(QtGui.QDateEdit):
     def __init__(self, parent=None, date=None):
         QtGui.QDateEdit.__init__(self, parent)
         width = view_setting['ComboBoxWidth']
-        height = view_setting['ComboBOxHeight']
+        height = view_setting['ComboBoxHeight']
         self.resize(width, height)
         self.setDate(QtCore.QDate.fromString(date, 'yyyy-MM-dd'))
 
+
+class MyDialog(QtGui.QDialog):
+    def __init__(self, parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        width = view_setting['DialogWidth']
+        height = view_setting['DialogHeight']
+        self.resize(width, height)
 
 class MyWidget(QtGui.QWidget):
     def __init__(self, parent=None, ):
@@ -97,6 +104,10 @@ class MainWindow(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
         self.all_component = {}
+        self.comboBoxPair = {}
+        self.userContent = {}
+        self.nowUserId = 0
+
         width = view_setting["MainWindowWidth"]
         height = view_setting["MainWindowHeight"]
         self.resize(width, height)
@@ -208,10 +219,14 @@ class MainWindow(QtGui.QMainWindow):
 
         myComboBox_userName = MyComboBox([], self)
         myComboBox_userName.move(200, 120)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
         change_user_component_dict["myComboBox_userName"] = myComboBox_userName
 
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
         myButton_insertUser = MyButton("确认", self)
-        myButton_insertUser.move(100, 360)
+        myButton_insertUser.move(100, 180)
+        self.connect(myButton_insertUser, QtCore.SIGNAL("clicked()"), self.changeUserButtonSlot)
         change_user_component_dict["myButton_insertUser"] = myButton_insertUser
 
         self.all_component["change_user"] = change_user_component_dict
@@ -220,13 +235,106 @@ class MainWindow(QtGui.QMainWindow):
 
     def selectionchange(self):
         sender = self.sender()
-        print(sender)
-        for i in range(self.all_component["change_user"]["myComboBox_userName"].count()):
-            self.all_component["change_user"]["myComboBox_userName"].removeItem(i)
+        # print(sender)
+        reciever = self.comboBoxPair[sender]
+        # print("allcount:" + str(reciever.count()))
+
+        while reciever.count() != 0:
+            reciever.removeItem(0)
+        # for i in range(reciever.count()):
+        #     reciever.removeItem(i)
+        # print("allcountnow:" + str(reciever.count()))
 
         now_userType = sender.itemText(sender.currentIndex())
-        userNames = get_userNames_by_userType(now_userType)
-        self.all_component["change_user"]["myComboBox_userName"].addItems(userNames)
+
+        userNames, userName2id = get_userNames_by_userType(now_userType)
+        self.userContent[now_userType] = userName2id
+
+        reciever.addItems(userNames)
+
+    def selectUser(self):
+        sender = self.sender()
+        last_sender = None
+        for x in self.comboBoxPair:
+            if self.comboBoxPair[x] == sender:
+                last_sender = x
+        if sender:
+            now_userName = sender.itemText(sender.currentIndex())
+        if last_sender:
+            now_userType = last_sender.itemText(last_sender.currentIndex())
+            if now_userType in self.userContent:
+                self.nowUserId = self.userContent[now_userType][now_userName]
+        # print(self.nowUserId)
+
+    def changeUserButtonSlot(self):
+        id = self.nowUserId
+        userContent = get_user_by_id(id)
+        d = MyDialog(self)
+
+        myLabel_userType = MyLabel("用户类型 : ", d)
+        myLabel_userType.move(100, 60)
+
+        myLineEdit_userType = MyLineEdit(d)
+        myLineEdit_userType.move(200, 60)
+        myLineEdit_userType.setText(userContent["userType"])
+
+        myLabel_userName = MyLabel("用户名称 : ", d)
+        myLabel_userName.move(100, 120)
+
+        myLineEdit_userName = MyLineEdit(d)
+        myLineEdit_userName.move(200, 120)
+        myLineEdit_userName.setText(userContent["userName"])
+
+        myLabel_gasUnit = MyLabel("气量单位 : ", d)
+        myLabel_gasUnit.move(100, 180)
+
+        myLineEdit_gasUnit = MyLineEdit(d)
+        myLineEdit_gasUnit.move(200, 180)
+        myLineEdit_gasUnit.setText(userContent["gasUnit"])
+
+        myLabel_userUnit = MyLabel("用户单位 : ", d)
+        myLabel_userUnit.move(100, 240)
+
+        myLineEdit_userUnit = MyLineEdit(d)
+        myLineEdit_userUnit.move(200, 240)
+        myLineEdit_userUnit.setText(userContent["userUnit"])
+
+        myButton_insertUser = MyButton("确认", d)
+        myButton_insertUser.move(100, 300)
+
+        myButton_cancel = MyButton("取消", d)
+        myButton_cancel.move(300, 300)
+
+        def cancel():
+            d.close()
+
+        d.connect(myButton_cancel, QtCore.SIGNAL("clicked()"), cancel)
+
+        def updateUser():
+            userType = myLineEdit_userType.text()
+            userName = myLineEdit_userName.text()
+            gasUnit = myLineEdit_gasUnit.text()
+            userUnit = myLineEdit_userUnit.text()
+            if userUnit and userName and gasUnit and userType:
+                res = update_user(id, userType, userName, gasUnit, userUnit)
+                if res[0]:
+                    sec = QtGui.QMessageBox.information(d, "成功", "编辑用户成功！", "确定")
+                    print("success")
+                    d.close()
+                else:
+                    warn = QtGui.QMessageBox.warning(d, "无法编辑用户", res[1], "确定")
+                    print(res[1])
+            else:
+                warn = QtGui.QMessageBox.warning(d, "无法编辑用户", "用户信息录入不全！", "确定")
+                print("you can't")
+
+        d.connect(myButton_insertUser, QtCore.SIGNAL("clicked()"), updateUser)
+
+        d.setWindowTitle("编辑用户")
+        d.setWindowModality(QtCore.Qt.ApplicationModal)
+        print(d.parent().nowUserId)
+        d.exec_()
+
 
     def insert_weather_fuc(self):
         insert_weather_component_dict = {}
