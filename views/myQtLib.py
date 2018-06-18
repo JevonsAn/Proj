@@ -2,8 +2,11 @@ import time
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
+from control.user_operation import get_user_by_id, update_user
+from control.user_operation import add_user
+from control.data_operation import add_weather, datetime_to_timestamp, add_user_data
 from control.user_operation import get_user_by_id, update_user, delete_user
-from control.user_operation import add_weather, datetime_to_timestamp
+from control.user_operation import datetime_to_timestamp
 from pymysql import IntegrityError
 
 
@@ -155,6 +158,12 @@ class MainWindow(QtGui.QMainWindow):
         self.insert_weather_fuc()
         self.connect(insert_weather, QtCore.SIGNAL('triggered()'), self.display_insert_weather)
         data_menu.addAction(insert_weather)
+
+        insert_user_data = QtGui.QAction('录入用户数据', self)
+        insert_user_data.setStatusTip('录入用户数据')
+        self.insert_user_data_fuc()
+        self.connect(insert_user_data, QtCore.SIGNAL('triggered()'), self.display_insert_user_data)
+        data_menu.addAction(insert_user_data)
 
     def create_user_fuc(self):
         create_user_component_dict = {}
@@ -342,8 +351,8 @@ class MainWindow(QtGui.QMainWindow):
         # print(self.nowUserId)
 
     def changeUserButtonSlot(self):
-        id = self.nowUserId
-        userContent = get_user_by_id(id)
+        userId = self.nowUserId
+        userContent = get_user_by_id(userId)
         d = MyDialog(self)
 
         myLabel_userType = MyLabel("用户类型 : ", d)
@@ -391,7 +400,7 @@ class MainWindow(QtGui.QMainWindow):
             gasUnit = myLineEdit_gasUnit.text()
             userUnit = myLineEdit_userUnit.text()
             if userUnit and userName and gasUnit and userType:
-                res = update_user(id, userType, userName, gasUnit, userUnit)
+                res = update_user(userId, userType, userName, gasUnit, userUnit)
                 if res[0]:
                     sec = QtGui.QMessageBox.information(d, "成功", "编辑用户成功！", "确定")
                     print("success")
@@ -409,6 +418,7 @@ class MainWindow(QtGui.QMainWindow):
         d.setWindowModality(QtCore.Qt.ApplicationModal)
         # print(d.parent().nowUserId)
         d.exec_()
+
         self.display_change_user()
 
     def insert_weather_fuc(self):
@@ -463,7 +473,7 @@ class MainWindow(QtGui.QMainWindow):
         myButton_insertWeather.move(100, 300)
         insert_weather_component_dict['myButton_insertWeather'] = myButton_insertWeather
 
-        self.connect(insert_weather_component_dict['myButton_insertWeather'], QtCore.SIGNAL("clicked()"), self.insert_weather)
+        self.connect(myButton_insertWeather, QtCore.SIGNAL("clicked()"), self.insert_weather)
 
         self.all_component["insert_weather"] = insert_weather_component_dict
         for x in insert_weather_component_dict:
@@ -471,6 +481,194 @@ class MainWindow(QtGui.QMainWindow):
 
     def insert_user_data_fuc(self):
         insert_user_data_component_dict = {}
+
+        myLabel_userType = MyLabel('用户类型：', self)
+        myLabel_userType.move(100, 60)
+        insert_user_data_component_dict['myLabel_userType'] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 60)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        insert_user_data_component_dict['myComboBox_userType'] = myComboBox_userType
+
+        myLabel_userName = MyLabel('用户名称：', self)
+        myLabel_userName.move(100, 120)
+        insert_user_data_component_dict['myLabel_userName'] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 120)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        insert_user_data_component_dict['myComboBox_userName'] = myComboBox_userName
+
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        myButton_logIn = MyButton('确认', self)
+        myButton_logIn.move(100, 180)
+        self.connect(myButton_logIn, QtCore.SIGNAL('clicked()'), self.insertUserDataButtonSlot)
+        insert_user_data_component_dict['myButton_logIn'] = myButton_logIn
+
+        self.all_component['insert_user_data'] = insert_user_data_component_dict
+
+        for i in insert_user_data_component_dict:
+            insert_user_data_component_dict[i].hide()
+
+    def insertUserDataButtonSlot(self):
+        userId = self.nowUserId
+        userContent = get_user_by_id(userId)
+        timeType = userContent['timeType']
+        d = MyDialog(self)
+
+        myLabel_title = MyLabel(userContent['userType'] + '-' + userContent['userName'] + '用户：', d)
+        myLabel_title.move(100, 60)
+
+        myLabel_gasCondition = MyLabel('用气工况：', d)
+        myLabel_gasCondition.move(100, 120)
+
+        def on_year_change():
+            if myComboBox_year.currentText() == '':
+                timeType > 1 and myComboBox_month.clear()
+                timeType > 2 and myComboBox_day.clear()
+                timeType > 3 and myComboBox_hour.clear()
+            if timeType > 2:
+                if myComboBox_month.currentText() == '2':
+                    current_year = int(myComboBox_year.currentText())
+                    while myComboBox_day.count() != 0:
+                        myComboBox_day.removeItem(0)
+                    if current_year % 400 != 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                        myComboBox_day.addItems(day_dict['闰月'])
+                    else:
+                        myComboBox_day.addItems(day_dict['平月'])
+
+        myComboBox_year = MyComboBox([str(x) for x in range(2000, 2101)], d)
+        myComboBox_year.move(200, 120)
+        myComboBox_year.currentIndexChanged.connect(on_year_change)
+        # myComboBox_year.addItems(list(range(2000, 2100)))
+
+        myLabel_year = MyLabel('年', d)
+        myLabel_year.move(300, 120)
+
+        if timeType > 1:
+            def on_month_change():
+                if myComboBox_month.currentText() == '':
+                    timeType > 2 and myComboBox_day.clear()
+                    timeType > 3 and myComboBox_hour.clear()
+                if timeType > 2:
+                    myComboBox_day.clear()
+                    current_month = myComboBox_month.currentText()
+                    if current_month == '2':
+                        current_year = int(myComboBox_year.currentText())
+                        if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                            myComboBox_day.addItems(day_dict['闰月'])
+                        else:
+                            myComboBox_day.addItems(day_dict['平月'])
+                    elif current_month in month_dict['大月']:
+                        myComboBox_day.addItems(day_dict['大月'])
+                    elif current_month in month_dict['小月']:
+                        myComboBox_day.addItems(day_dict['小月'])
+
+            myComboBox_month = MyComboBox([''] + [str(x) for x in range(1, 13)], d)
+            if timeType != 5:
+                myComboBox_month.removeItem(0)
+            # myComboBox_month.addItems(list(range(1, 13)))
+            myComboBox_month.move(320, 120)
+            myComboBox_month.currentIndexChanged.connect(on_month_change)
+
+            myLabel_month = MyLabel('月', d)
+            myLabel_month.move(420, 120)
+
+            if timeType > 2:
+                def on_day_change():
+                    if myComboBox_day.currentText() == '':
+                        timeType > 3 and myComboBox_hour.clear()
+                    else:
+                        myComboBox_hour.addItems([''] + [str(x) for x in range(0, 24)])
+                month_dict = {'大月': ['', '1', '3', '5', '7', '8', '10', '12'], '小月': ['', '4', '6', '9', '11']}
+                day_dict = {'小月': [''] + [str(x) for x in range(1, 31)], '大月': [''] + [str(x) for x in range(1, 32)],
+                            '平月': [''] + [str(x) for x in range(1, 29)], '闰月': [''] + [str(x) for x in range(1, 30)]}
+                myComboBox_day = MyComboBox([''] + [str(x) for x in range(1, 32)], d)
+                if timeType != 5:
+                    myComboBox_day.removeItem(0)
+                myComboBox_day.move(440, 120)
+                myComboBox_day.currentIndexChanged.connect(on_day_change)
+
+                myLabel_day = MyLabel('日', d)
+                myLabel_day.move(540, 120)
+                if timeType > 3:
+                    myComboBox_hour = MyComboBox([''] + [str(x) for x in range(0, 13)], d)
+                    if timeType != 5:
+                        myComboBox_hour.removeItem(0)
+                    myComboBox_hour.move(560, 120)
+
+                    myLabel_hour = MyLabel('时', d)
+                    myLabel_hour.move(660, 120)
+
+        myLabel_gasNum = MyLabel('用气量：', d)
+        myLabel_gasNum.move(100, 180)
+
+        myLineEdit_gasNum = MyLineEdit(d)
+        myLineEdit_gasNum.move(200, 180)
+
+        myLabel_gasUnit = MyLabel(userContent['gasUnit'], d)
+        myLabel_gasUnit.move(300, 180)
+
+        myLabel_userNum = MyLabel('用户数：', d)
+        myLabel_userNum.move(100, 240)
+
+        myLineEdit_userNum = MyLineEdit(d)
+        myLineEdit_userNum.move(200, 240)
+
+        myLabel_userUnit = MyLabel(userContent['userUnit'], d)
+        myLabel_userUnit.move(300, 240)
+
+        myButton_insertUserData = MyButton("确认", d)
+        myButton_insertUserData.move(100, 300)
+
+        myButton_cancel = MyButton("取消", d)
+        myButton_cancel.move(300, 300)
+
+        def cancel():
+            d.close()
+
+        d.connect(myButton_cancel, QtCore.SIGNAL("clicked()"), cancel)
+
+        def insert_user_data():
+            gasNum = myLineEdit_gasNum.text()
+            userNum = myLineEdit_userNum.text()
+            year = int(myComboBox_year.currentText())
+            month = day = hour = 0
+            if timeType > 1:
+                if myComboBox_month.currentText():
+                    month = int(myComboBox_month.currentText())
+            if timeType > 2:
+                if myComboBox_day.currentText():
+                    day = int(myComboBox_day.currentText())
+            if timeType > 3:
+                if myComboBox_hour.currentText():
+                    hour = int(myComboBox_hour.currentText())
+            if not gasNum:
+                QtGui.QMessageBox.warning(d, "数据录入失败", "用气量不能为空！", "确定")
+                return
+            if not userNum:
+                QtGui.QMessageBox.warning(d, "数据录入失败", "用户数不能为空！", "确定")
+                return
+            try:
+                gasNum = float(gasNum)
+                userNum = int(userNum)
+                add_user_data(userId, timeType, gasNum, userNum, year, month, day, hour)
+                QtGui.QMessageBox.information(d, "数据录入成功", "录入成功！", "确定")
+            except ValueError:
+                QtGui.QMessageBox.warning(d, "数据录入失败", "用气量和用户数必须为数字！", "确定")
+            except IntegrityError:
+                QtGui.QMessageBox.warning(d, '数据录入失败', '该日期的数据已经录入', '确定')
+            except Exception as e:
+                QtGui.QMessageBox.warning(d, "数据录入失败", "出现未知错误……", "确定")
+                raise e
+        d.connect(myButton_insertUserData, QtCore.SIGNAL("clicked()"), insert_user_data)
+
+        d.setWindowTitle("录入用户数据")
+        d.setWindowModality(QtCore.Qt.ApplicationModal)
+        print(d.parent().nowUserId)
+        d.exec_()
 
     def display_create_user(self):
         for k in self.all_component:
@@ -485,6 +683,23 @@ class MainWindow(QtGui.QMainWindow):
                 self.all_component[k][x].hide()
         for x in self.all_component['insert_weather']:
             self.all_component['insert_weather'][x].show()
+
+    def display_insert_user_data(self):
+        for i in self.all_component.values():
+            for j in i.values():
+                j.hide()
+        for i in self.all_component['insert_user_data'].values():
+            i.show()
+
+        userType_set = set(get_all_userType())
+
+        count = self.all_component["insert_user_data"]["myComboBox_userType"].count()
+        for i in range(count):
+            if self.all_component["insert_user_data"]["myComboBox_userType"].itemText(i) in userType_set:
+                userType_set.remove(self.all_component["insert_user_data"]["myComboBox_userType"].itemText(i))
+            else:
+                self.all_component["insert_user_data"]["myComboBox_userType"].remove(i)
+        self.all_component["insert_user_data"]["myComboBox_userType"].addItems(list(userType_set))
 
     def display_change_user(self):
         for k in self.all_component:
@@ -544,17 +759,21 @@ class MainWindow(QtGui.QMainWindow):
 
     def insert_weather(self):
         date = self.all_component['insert_weather']['myDateEdit_date'].text()
+        maxTemperature = self.all_component['insert_weather']['myLineEdit_maxTemperature'].text()
+        minTemperature = self.all_component['insert_weather']['myLineEdit_minTemperature'].text()
+        avgTemperature = self.all_component['insert_weather']['myLineEdit_avgTemperature'].text()
+        if not maxTemperature or not minTemperature or not avgTemperature:
+            QtGui.QMessageBox.warning(self, "天气录入失败", "气温不能为空！", "确定")
+            return
         try:
-            maxTemperature = float(self.all_component['insert_weather']['myLineEdit_maxTemperature'].text())
-            minTemperature = float(self.all_component['insert_weather']['myLineEdit_minTemperature'].text())
-            avgTemperature = float(self.all_component['insert_weather']['myLineEdit_avgTemperature'].text())
+            maxTemperature = float(maxTemperature)
+            minTemperature = float(minTemperature)
+            avgTemperature = float(avgTemperature)
             if int(time.time()) < datetime_to_timestamp(date, '%Y/%m/%d'):
                 QtGui.QMessageBox.warning(self, "天气录入失败", "不能录入未来日期的天气", "确定")
-            elif date and maxTemperature and minTemperature and avgTemperature:
-                add_weather(date, maxTemperature, minTemperature, avgTemperature)
-                QtGui.QMessageBox.information(self, "天气录入成功", "天气录入成功", "确定")
-            else:
-                QtGui.QMessageBox.warning(self, "天气录入失败", "气温不能为空！", "确定")
+                return
+            add_weather(date, maxTemperature, minTemperature, avgTemperature)
+            QtGui.QMessageBox.information(self, "天气录入成功", "天气录入成功", "确定")
         except IntegrityError:
             QtGui.QMessageBox.warning(self, "天气录入失败", "该日期的天气已被录入！", "确定")
         except ValueError:

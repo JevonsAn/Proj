@@ -42,7 +42,7 @@ def get_userNames_by_userType(userType):
 
 def get_user_by_id(id):
     mysqlserver = Mysql()
-    sql = "SELECT userType, userName, gasUnit, userUnit  FROM data.user WHERE id=%s;"
+    sql = "SELECT userType, userName, gasUnit, userUnit, timeType FROM data.user WHERE id=%s;"
     mysqlserver.exe(sql, (id,))
     user = {}
     for row in mysqlserver.results():
@@ -50,6 +50,7 @@ def get_user_by_id(id):
         user["userName"] = row[1]
         user["gasUnit"] = row[2]
         user["userUnit"] = row[3]
+        user["timeType"] = int(row[4])
     mysqlserver.closeSQL()
     return user
 
@@ -101,5 +102,37 @@ def insert_weather(date, maxTemperature, minTemperature, avgTemperature):
     mysqlserver = Mysql()
     sql = 'INSERT INTO data.weather (date, max, min, ord) VALUES (%s, %s, %s, %s);'
     mysqlserver.exe(sql, (date, maxTemperature, minTemperature, avgTemperature))
+    mysqlserver.commit()
+    mysqlserver.closeSQL()
+
+
+def insert_user_data(userId, timeType, gasNum, userNum, year, month, day, hour):
+    mysqlserver = Mysql()
+    newTimeType = timeType
+    if timeType == 5:
+        if year:
+            newTimeType = 1
+        if month:
+            newTimeType = 2
+        if day:
+            newTimeType = 3
+        if hour:
+            newTimeType = 4
+    if newTimeType == 1:
+        sql = 'INSERT INTO data.userdata (user_id, gasNum, userNum, year) VALUES (%s, %s, %s, %s);'
+        mysqlserver.exe(sql, (userId, gasNum, userNum, year))
+    elif newTimeType == 2:
+        sql = 'INSERT INTO data.userdata (user_id, gasNum, userNum, year, month) VALUES (%s, %s, %s, %s, %s);'
+        mysqlserver.exe(sql, (userId, gasNum, userNum, year, month))
+    elif newTimeType == 3:
+        sql = 'INSERT INTO data.userdata (user_id, gasNum, userNum, year, month, day) VALUES (%s, %s, %s, %s, %s, %s);'
+        mysqlserver.exe(sql, (userId, gasNum, userNum, year, month, day))
+    else:
+        sql = 'INSERT INTO data.userdata (user_id, gasNum, userNum, year, month, day, hour) ' \
+              'VALUES (%s, %s, %s, %s, %s, %s, %s);'
+        mysqlserver.exe(sql, (userId, gasNum, userNum, year, month, day, hour))
+    if timeType == 5:
+        sql = 'UPDATE user SET timeType = %s WHERE id = %s'
+        mysqlserver.exe(sql, (newTimeType, userId))
     mysqlserver.commit()
     mysqlserver.closeSQL()
