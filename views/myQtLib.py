@@ -2,7 +2,7 @@ import time
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
-from control.user_operation import get_user_by_id, update_user
+from control.user_operation import get_user_by_id, update_user, delete_user
 from control.user_operation import add_weather, datetime_to_timestamp
 from pymysql import IntegrityError
 
@@ -80,6 +80,7 @@ class MyDialog(QtGui.QDialog):
         height = view_setting['DialogHeight']
         self.resize(width, height)
 
+
 class MyWidget(QtGui.QWidget):
     def __init__(self, parent=None, ):
         QtGui.QWidget.__init__(self, parent)
@@ -142,6 +143,12 @@ class MainWindow(QtGui.QMainWindow):
         self.change_user_fuc()
         self.connect(change_user, QtCore.SIGNAL('triggered()'), self.display_change_user)
         user_menu.addAction(change_user)
+
+        delete_user = QtGui.QAction('删除用户', self)
+        delete_user.setStatusTip('删除用户')
+        self.delete_user_fuc()
+        self.connect(delete_user, QtCore.SIGNAL('triggered()'), self.display_delete_user)
+        user_menu.addAction(delete_user)
 
         insert_weather = QtGui.QAction('录入天气', self)
         insert_weather.setStatusTip('录入天气')
@@ -224,7 +231,7 @@ class MainWindow(QtGui.QMainWindow):
 
         self.comboBoxPair[myComboBox_userType] = myComboBox_userName
 
-        myButton_insertUser = MyButton("确认", self)
+        myButton_insertUser = MyButton("修改", self)
         myButton_insertUser.move(100, 180)
         self.connect(myButton_insertUser, QtCore.SIGNAL("clicked()"), self.changeUserButtonSlot)
         change_user_component_dict["myButton_insertUser"] = myButton_insertUser
@@ -232,6 +239,74 @@ class MainWindow(QtGui.QMainWindow):
         self.all_component["change_user"] = change_user_component_dict
         for x in change_user_component_dict:
             change_user_component_dict[x].hide()
+
+    def delete_user_fuc(self):
+        delete_user_component_dict = {}
+        myLabel_userType = MyLabel("用户类型 : ", self)
+        myLabel_userType.move(100, 60)
+        delete_user_component_dict["myLabel_userType"] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 60)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        delete_user_component_dict["myComboBox_userType"] = myComboBox_userType
+
+        myLabel_userName = MyLabel("用户名称 : ", self)
+        myLabel_userName.move(100, 120)
+        delete_user_component_dict["myLabel_userName"] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 120)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        delete_user_component_dict["myComboBox_userName"] = myComboBox_userName
+
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        myButton_deleteUser = MyButton("删除", self)
+        myButton_deleteUser.move(100, 180)
+
+        cl = self
+
+        def deleteUserButtonSlot():
+            userId = cl.nowUserId
+            warn = QtGui.QDialog()
+            warn.resize(400, 150)
+            warn.setWindowTitle("删除确认")
+            warn.setWindowModality(QtCore.Qt.ApplicationModal)
+
+            myLabel_info = MyLabel("确认将删除用户所有数据，确认删除吗？", warn)
+            myLabel_info.resize(280, 30)
+            myLabel_info.move(10, 10)
+            myButton_yes = MyButton("确认", warn)
+            myButton_yes.move(10, 100)
+            myButton_no = MyButton("取消", warn)
+            myButton_no.move(130, 100)
+
+            def deleteUser():
+                res = delete_user(userId)
+                if res[0]:
+                    QtGui.QMessageBox.information(warn, "成功", "删除用户成功！", "确定")
+                    print("success")
+                    warn.close()
+                else:
+                    QtGui.QMessageBox.warning(warn, "无法删除用户", res[1], "确定")
+                    print(res[1])
+
+            def cancel():
+                warn.close()
+
+            warn.connect(myButton_yes, QtCore.SIGNAL("clicked()"), deleteUser)
+            warn.connect(myButton_no, QtCore.SIGNAL("clicked()"), cancel)
+
+            warn.exec_()
+            self.display_delete_user()
+
+        self.connect(myButton_deleteUser, QtCore.SIGNAL("clicked()"), deleteUserButtonSlot)
+        delete_user_component_dict["myButton_deleteUser"] = myButton_deleteUser
+
+        self.all_component["delete_user"] = delete_user_component_dict
+        for x in delete_user_component_dict:
+            delete_user_component_dict[x].hide()
 
     def selectionchange(self):
         sender = self.sender()
@@ -332,9 +407,9 @@ class MainWindow(QtGui.QMainWindow):
 
         d.setWindowTitle("编辑用户")
         d.setWindowModality(QtCore.Qt.ApplicationModal)
-        print(d.parent().nowUserId)
+        # print(d.parent().nowUserId)
         d.exec_()
-
+        self.display_change_user()
 
     def insert_weather_fuc(self):
         insert_weather_component_dict = {}
@@ -415,18 +490,29 @@ class MainWindow(QtGui.QMainWindow):
         for k in self.all_component:
             for x in self.all_component[k]:
                 self.all_component[k][x].hide()
-        userType_set = set(get_all_userType())
+        userType_list = get_all_userType()
 
-        count = self.all_component["change_user"]["myComboBox_userType"].count()
-        for i in range(count):
-            if self.all_component["change_user"]["myComboBox_userType"].itemText(i) in userType_set:
-                userType_set.remove(self.all_component["change_user"]["myComboBox_userType"].itemText(i))
-            else:
-                self.all_component["change_user"]["myComboBox_userType"].remove(i)
-        self.all_component["change_user"]["myComboBox_userType"].addItems(list(userType_set))
+        cb = self.all_component["change_user"]["myComboBox_userType"]
+        while cb.count() != 0:
+            cb.removeItem(0)
+        cb.addItems(userType_list)
 
         for x in self.all_component['change_user']:
             self.all_component['change_user'][x].show()
+
+    def display_delete_user(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                self.all_component[k][x].hide()
+        userType_list = get_all_userType()
+
+        cb = self.all_component["delete_user"]["myComboBox_userType"]
+        while cb.count() != 0:
+            cb.removeItem(0)
+        cb.addItems(userType_list)
+
+        for x in self.all_component['delete_user']:
+            self.all_component['delete_user'][x].show()
 
     def center(self):
         screen = QtGui.QDesktopWidget().screenGeometry()
@@ -443,11 +529,11 @@ class MainWindow(QtGui.QMainWindow):
             res = add_user(userType, userName, gasUnit, userUnit, remark)
             if res[0]:
                 sec = QtGui.QMessageBox.information(self, "成功", "新建用户成功！", "确定")
-                self.myLineEdit_userType.setText("")
-                self.myLineEdit_userName.setText("")
-                self.myLineEdit_gasUnit.setText("")
-                self.myLineEdit_userUnit.setText("")
-                self.myLineEdit_beizhu.setText("")
+                self.all_component['create_user']['myLineEdit_userType'].setText("")
+                self.all_component['create_user']['myLineEdit_userName'].setText("")
+                self.all_component['create_user']['myLineEdit_gasUnit'].setText("")
+                self.all_component['create_user']['myLineEdit_userUnit'].setText("")
+                self.all_component['create_user']['myLineEdit_beizhu'].setText("")
                 print("success")
             else:
                 warn = QtGui.QMessageBox.warning(self, "无法新建用户", res[1], "确定")

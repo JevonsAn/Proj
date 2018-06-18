@@ -1,6 +1,7 @@
 from database.sqlquery import get_user as gu
 from database.sqlquery import insert_user as iu
 from database.sqlquery import update_user as uu
+from database.sqlquery import delete_user as du
 from database.sqlquery import get_all_userType as gau
 from database.sqlquery import get_userNames_by_userType as gubu
 from database.sqlquery import get_user_by_id as gubi
@@ -36,6 +37,10 @@ def add_weather(date, maxTemperature, minTemperature, avgTemperature):
 
 def update_user(id, userType, userName, gasUnit, userUnit):
     return uu(id, userType, userName, gasUnit, userUnit)
+
+
+def delete_user(id):
+    return du(id)
 
 def datetime_to_timestamp(datetime, format):
     """

@@ -60,6 +60,7 @@ def update_user(id, userType, userName, gasUnit, userUnit):
     res = [True, '']
     try:
         mysqlserver.exe(sql, (userType, userName, gasUnit, userUnit, id,))
+        mysqlserver.commit()
     except Exception as e:
         res = [False, "数据库错误" + str(e)]
     finally:
@@ -74,6 +75,20 @@ def insert_user(userType, userName, gasUnit, userUnit, remark=''):
     res = [True, '']
     try:
         mysqlserver.exe(sql, (userType, userName, gasUnit, userUnit))
+        mysqlserver.commit()
+    except Exception as e:
+        res = [False, "数据库错误" + str(e)]
+    finally:
+        mysqlserver.closeSQL()
+        return res
+
+
+def delete_user(id):
+    mysqlserver = Mysql()
+    sql = "DELETE FROM `data`.`user` WHERE `id` = %s"
+    res = [True, '']
+    try:
+        mysqlserver.exe(sql, (int(id),))
         mysqlserver.commit()
     except Exception as e:
         res = [False, "数据库错误" + str(e)]
