@@ -165,6 +165,12 @@ class MainWindow(QtGui.QMainWindow):
         self.connect(insert_user_data, QtCore.SIGNAL('triggered()'), self.display_insert_user_data)
         data_menu.addAction(insert_user_data)
 
+        dataExport_gasIndex = QtGui.QAction('导出用气指标', self)
+        dataExport_gasIndex.setStatusTip('导出用气指标')
+        self.dataExport_gasIndex_fuc()
+        self.connect(dataExport_gasIndex, QtCore.SIGNAL('triggered()'), self.display_dataExport_gasIndex)
+        data_menu.addAction(dataExport_gasIndex)
+
     def create_user_fuc(self):
         create_user_component_dict = {}
         myLabel_userType = MyLabel("用户类型 : ", self)
@@ -316,6 +322,83 @@ class MainWindow(QtGui.QMainWindow):
         self.all_component["delete_user"] = delete_user_component_dict
         for x in delete_user_component_dict:
             delete_user_component_dict[x].hide()
+
+    def dataExport_gasIndex_fuc(self):
+        dataExport_gasIndex_component_dict = {}
+        myLabel_indexType = MyLabel("指标类型 : ", self)
+        myLabel_indexType.move(100, 60)
+        dataExport_gasIndex_component_dict["myLabel_indexType"] = myLabel_indexType
+
+        myComboBox_indexType = MyComboBox(["年", "月"], self)
+        myComboBox_indexType.move(200, 60)
+        dataExport_gasIndex_component_dict["myComboBox_indexType"] = myComboBox_indexType
+
+        myLabel_startTime = MyLabel("开始日期 : ", self)
+        myLabel_startTime.move(100, 120)
+        dataExport_gasIndex_component_dict["myLabel_startTime"] = myLabel_startTime
+
+        myComboBox_startTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_startTime_year.move(200, 120)
+        dataExport_gasIndex_component_dict["myComboBox_startTime_year"] = myComboBox_startTime_year
+        myLabel_year = MyLabel(" 年", self)
+        myLabel_year.move(300, 120)
+        myLabel_year.resize(50, 30)
+        dataExport_gasIndex_component_dict["myLabel_year"] = myLabel_year
+
+        myComboBox_startTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_startTime_month.move(350, 120)
+        dataExport_gasIndex_component_dict["myComboBox_startTime_month"] = myComboBox_startTime_month
+        myLabel_month = MyLabel(" 月", self)
+        myLabel_month.move(450, 120)
+        myLabel_month.resize(50, 30)
+        dataExport_gasIndex_component_dict["myLabel_month"] = myLabel_month
+
+        myLabel_stopTime = MyLabel("结束日期 : ", self)
+        myLabel_stopTime.move(100, 180)
+        dataExport_gasIndex_component_dict["myLabel_stopTime"] = myLabel_stopTime
+
+        myComboBox_stopTime = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_stopTime.move(200, 180)
+        dataExport_gasIndex_component_dict["myComboBox_stopTime"] = myComboBox_stopTime
+        myLabel_year2 = MyLabel(" 年", self)
+        myLabel_year2.move(300, 180)
+        myLabel_year2.resize(50, 30)
+        dataExport_gasIndex_component_dict["myLabel_year2"] = myLabel_year2
+        myComboBox_stopTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_stopTime_month.move(350, 180)
+        dataExport_gasIndex_component_dict["myComboBox_stopTime_month"] = myComboBox_stopTime_month
+        myLabel_month2 = MyLabel(" 月", self)
+        myLabel_month2.move(450, 180)
+        myLabel_month2.resize(50, 30)
+        dataExport_gasIndex_component_dict["myLabel_month2"] = myLabel_month2
+
+        myButton_export = MyButton("导出", self)
+        myButton_export.move(100, 240)
+        dataExport_gasIndex_component_dict["myButton_export"] = myButton_export
+
+        self.all_component["dataExport_gasIndex"] = dataExport_gasIndex_component_dict
+
+        pr = self
+
+        def selectionChange():
+            if pr.all_component["dataExport_gasIndex"]["myComboBox_indexType"].currentIndex() == 0:  # 指标类型是年
+                pr.all_component["dataExport_gasIndex"]["myComboBox_startTime_month"].hide()
+                pr.all_component["dataExport_gasIndex"]["myComboBox_stopTime_month"].hide()
+                pr.all_component["dataExport_gasIndex"]["myLabel_month"].hide()
+                pr.all_component["dataExport_gasIndex"]["myLabel_month2"].hide()
+            elif pr.all_component["dataExport_gasIndex"]["myComboBox_indexType"].currentIndex() == 1:  # 指标类型是月
+                pr.all_component["dataExport_gasIndex"]["myComboBox_startTime_month"].show()
+                pr.all_component["dataExport_gasIndex"]["myComboBox_stopTime_month"].show()
+                pr.all_component["dataExport_gasIndex"]["myLabel_month"].show()
+                pr.all_component["dataExport_gasIndex"]["myLabel_month2"].show()
+
+        self.all_component["dataExport_gasIndex"]["myComboBox_indexType"].currentIndexChanged.connect(selectionChange)
+
+        for x in dataExport_gasIndex_component_dict:
+            dataExport_gasIndex_component_dict[x].hide()
+
+
+
 
     def selectionchange(self):
         sender = self.sender()
@@ -728,6 +811,27 @@ class MainWindow(QtGui.QMainWindow):
 
         for x in self.all_component['delete_user']:
             self.all_component['delete_user'][x].show()
+
+    def display_dataExport_gasIndex(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                self.all_component[k][x].hide()
+
+        for x in self.all_component['dataExport_gasIndex']:
+            self.all_component['dataExport_gasIndex'][x].show()
+
+        pr = self
+        if pr.all_component["dataExport_gasIndex"]["myComboBox_indexType"].currentIndex() == 0:  # 指标类型是年
+            pr.all_component["dataExport_gasIndex"]["myComboBox_startTime_month"].hide()
+            pr.all_component["dataExport_gasIndex"]["myComboBox_stopTime_month"].hide()
+            pr.all_component["dataExport_gasIndex"]["myLabel_month"].hide()
+            pr.all_component["dataExport_gasIndex"]["myLabel_month2"].hide()
+        elif pr.all_component["dataExport_gasIndex"]["myComboBox_indexType"].currentIndex() == 1:  # 指标类型是月
+            pr.all_component["dataExport_gasIndex"]["myComboBox_startTime_month"].show()
+            pr.all_component["dataExport_gasIndex"]["myComboBox_stopTime_month"].show()
+            pr.all_component["dataExport_gasIndex"]["myLabel_month"].show()
+            pr.all_component["dataExport_gasIndex"]["myLabel_month2"].show()
+
 
     def center(self):
         screen = QtGui.QDesktopWidget().screenGeometry()
