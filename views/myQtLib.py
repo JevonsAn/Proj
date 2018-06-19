@@ -2,6 +2,11 @@ import time
 import datetime
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
+from control.user_operation import get_all_userType, get_userNames_by_userType, add_user, get_user_by_id, \
+    update_user, delete_user
+from control.data_operation import add_weather, datetime_to_timestamp, add_user_data, check_admin_password, \
+    get_user_date_from_database, get_user_data_by_date_from_database, update_user_data_from_database, \
+    delete_user_data_from_database
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
 from control.data_operation import add_weather, datetime_to_timestamp, add_user_data
 from control.user_operation import get_user_by_id, update_user, delete_user
@@ -163,6 +168,12 @@ class MainWindow(QtGui.QMainWindow):
         self.insert_user_data_fuc()
         self.connect(insert_user_data, QtCore.SIGNAL('triggered()'), self.display_insert_user_data)
         data_menu.addAction(insert_user_data)
+
+        maintain_data = QtGui.QAction('维护数据', self)
+        maintain_data.setStatusTip('维护数据')
+        self.maintain_data_fuc()
+        self.connect(maintain_data, QtCore.SIGNAL('triggered()'), self.display_maintain_data)
+        data_menu.addAction(maintain_data)
 
         dataExport_gasIndex = QtGui.QAction('导出用气指标', self)
         dataExport_gasIndex.setStatusTip('导出用气指标')
@@ -613,7 +624,7 @@ class MainWindow(QtGui.QMainWindow):
 
         myButton_logIn = MyButton('确认', self)
         myButton_logIn.move(100, 180)
-        self.connect(myButton_logIn, QtCore.SIGNAL('clicked()'), self.insertUserDataButtonSlot)
+        self.connect(myButton_logIn, QtCore.SIGNAL('clicked()'), self.insert_user_data_slot)
         insert_user_data_component_dict['myButton_logIn'] = myButton_logIn
 
         self.all_component['insert_user_data'] = insert_user_data_component_dict
@@ -621,7 +632,7 @@ class MainWindow(QtGui.QMainWindow):
         for i in insert_user_data_component_dict:
             insert_user_data_component_dict[i].hide()
 
-    def insertUserDataButtonSlot(self):
+    def insert_user_data_slot(self):
         userId = self.nowUserId
         userContent = get_user_by_id(userId)
         timeType = userContent['timeType']
@@ -643,10 +654,12 @@ class MainWindow(QtGui.QMainWindow):
                     current_year = int(myComboBox_year.currentText())
                     while myComboBox_day.count() != 0:
                         myComboBox_day.removeItem(0)
-                    if current_year % 400 != 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                    if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
                         myComboBox_day.addItems(day_dict['闰月'])
                     else:
                         myComboBox_day.addItems(day_dict['平月'])
+                    if timeType != 5:
+                        myComboBox_day.removeItem(0)
 
         myComboBox_year = MyComboBox([str(x) for x in range(2000, 2101)], d)
         myComboBox_year.move(200, 120)
@@ -674,6 +687,8 @@ class MainWindow(QtGui.QMainWindow):
                         myComboBox_day.addItems(day_dict['大月'])
                     elif current_month in month_dict['小月']:
                         myComboBox_day.addItems(day_dict['小月'])
+                    if timeType != 5:
+                        myComboBox_day.removeItem(0)
 
             myComboBox_month = MyComboBox([''] + [str(x) for x in range(1, 13)], d)
             if timeType != 5:
@@ -687,25 +702,28 @@ class MainWindow(QtGui.QMainWindow):
 
             if timeType > 2:
                 def on_day_change():
-                    if myComboBox_day.currentText() == '':
-                        timeType > 3 and myComboBox_hour.clear()
-                    else:
-                        myComboBox_hour.addItems([''] + [str(x) for x in range(0, 24)])
+                    if timeType > 3:
+                        if myComboBox_day.currentText() == '':
+                            myComboBox_hour.clear()
+                        else:
+                            myComboBox_hour.addItems([''] + [str(x) for x in range(0, 24)])
+                            if timeType != 5:
+                                myComboBox_hour.removeItem(0)
                 month_dict = {'大月': ['', '1', '3', '5', '7', '8', '10', '12'], '小月': ['', '4', '6', '9', '11']}
                 day_dict = {'小月': [''] + [str(x) for x in range(1, 31)], '大月': [''] + [str(x) for x in range(1, 32)],
                             '平月': [''] + [str(x) for x in range(1, 29)], '闰月': [''] + [str(x) for x in range(1, 30)]}
-                myComboBox_day = MyComboBox([''] + [str(x) for x in range(1, 32)], d)
-                if timeType != 5:
-                    myComboBox_day.removeItem(0)
+                myComboBox_day = MyComboBox([str(x) for x in range(1, 32)], d)
+                if timeType == 5:
+                    myComboBox_day.clear()
                 myComboBox_day.move(440, 120)
                 myComboBox_day.currentIndexChanged.connect(on_day_change)
 
                 myLabel_day = MyLabel('日', d)
                 myLabel_day.move(540, 120)
                 if timeType > 3:
-                    myComboBox_hour = MyComboBox([''] + [str(x) for x in range(0, 13)], d)
-                    if timeType != 5:
-                        myComboBox_hour.removeItem(0)
+                    myComboBox_hour = MyComboBox([str(x) for x in range(0, 24)], d)
+                    if timeType == 5:
+                        myComboBox_hour.clear()
                     myComboBox_hour.move(560, 120)
 
                     myLabel_hour = MyLabel('时', d)
@@ -729,7 +747,7 @@ class MainWindow(QtGui.QMainWindow):
         myLabel_userUnit = MyLabel(userContent['userUnit'], d)
         myLabel_userUnit.move(300, 240)
 
-        myButton_insertUserData = MyButton("确认", d)
+        myButton_insertUserData = MyButton("录入", d)
         myButton_insertUserData.move(100, 300)
 
         myButton_cancel = MyButton("取消", d)
@@ -768,7 +786,7 @@ class MainWindow(QtGui.QMainWindow):
             except ValueError:
                 QtGui.QMessageBox.warning(d, "数据录入失败", "用气量和用户数必须为数字！", "确定")
             except IntegrityError:
-                QtGui.QMessageBox.warning(d, '数据录入失败', '该日期的数据已经录入', '确定')
+                QtGui.QMessageBox.warning(d, '数据录入失败', '该日期的数据已被录入！', '确定')
             except Exception as e:
                 QtGui.QMessageBox.warning(d, "数据录入失败", "出现未知错误……", "确定")
                 raise e
@@ -800,15 +818,10 @@ class MainWindow(QtGui.QMainWindow):
         for i in self.all_component['insert_user_data'].values():
             i.show()
 
-        userType_set = set(get_all_userType())
+        userType_list = get_all_userType()
 
-        count = self.all_component["insert_user_data"]["myComboBox_userType"].count()
-        for i in range(count):
-            if self.all_component["insert_user_data"]["myComboBox_userType"].itemText(i) in userType_set:
-                userType_set.remove(self.all_component["insert_user_data"]["myComboBox_userType"].itemText(i))
-            else:
-                self.all_component["insert_user_data"]["myComboBox_userType"].remove(i)
-        self.all_component["insert_user_data"]["myComboBox_userType"].addItems(list(userType_set))
+        self.all_component["insert_user_data"]["myComboBox_userType"].clear()
+        self.all_component["insert_user_data"]["myComboBox_userType"].addItems(userType_list)
 
     def display_change_user(self):
         for k in self.all_component:
@@ -911,3 +924,332 @@ class MainWindow(QtGui.QMainWindow):
         except Exception as e:
             QtGui.QMessageBox.warning(self, "天气录入失败", "出现未知错误……", "确定")
             raise e
+
+    def maintain_data_fuc(self):
+        maintain_data_compoment_dict = {}
+
+        myLabel_adminName = MyLabel('管理者账号：', self)
+        myLabel_adminName.move(100, 60)
+        maintain_data_compoment_dict['myLabel_adminName'] = myLabel_adminName
+
+        myLineEdit_adminName = MyLineEdit(self)
+        myLineEdit_adminName.move(200, 60)
+        maintain_data_compoment_dict['myLineEdit_adminName'] = myLineEdit_adminName
+
+        myLabel_password = MyLabel('密码：', self)
+        myLabel_password.move(100, 120)
+        maintain_data_compoment_dict['myLabel_password'] = myLabel_password
+
+        myLineEdit_password = MyLineEdit(self)
+        myLineEdit_password.move(200, 120)
+        myLineEdit_password.setEchoMode(QtGui.QLineEdit.Password)
+        maintain_data_compoment_dict['myLineEdit_password'] = myLineEdit_password
+
+        def maintain_data_login():
+            username = myLineEdit_adminName.text()
+            password = myLineEdit_password.text()
+            if username and password:
+                if check_admin_password(username, password):
+                    self.maintain_data_search_slot()
+                else:
+                    QtGui.QMessageBox.warning(self, '登录失败', '密码错误', '确定')
+            else:
+                QtGui.QMessageBox.warning(self, '登录失败', '用户名和密码不能为空!', '确定')
+
+        myButton_login = MyButton('登录', self)
+        myButton_login.move(100, 180)
+        self.connect(myButton_login, QtCore.SIGNAL('clicked()'), maintain_data_login)
+        maintain_data_compoment_dict['myButton_login'] = myButton_login
+
+        self.all_component['maintain_data'] = maintain_data_compoment_dict
+
+        for i in maintain_data_compoment_dict.values():
+            i.hide()
+
+    def maintain_data_search_slot(self):
+        d = MyDialog(self)
+        self.date_dict = {}
+
+        myLabel_userType = MyLabel('用户类型：', d)
+        myLabel_userType.move(100, 60)
+
+        myComboBox_userType = MyComboBox([], d)
+        myComboBox_userType.move(200, 60)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+
+        myLabel_userName = MyLabel('用户名称：', d)
+        myLabel_userName.move(100, 120)
+
+        myComboBox_userName = MyComboBox([], d)
+        myComboBox_userName.move(200, 120)
+
+        myLabel_date = MyLabel('日期：', d)
+        myLabel_date.move(100, 180)
+
+        def on_year_change():
+            myComboBox_month.clear()
+            if myComboBox_year.currentText() != '':
+                myComboBox_month.addItems([str(x) for x in
+                                           sorted(list(self.date_dict[int(myComboBox_year.currentText())].keys()))])
+
+        myComboBox_year = MyComboBox([str(x) for x in range(2000, 2101)], d)
+        myComboBox_year.move(200, 180)
+        myComboBox_year.currentIndexChanged.connect(on_year_change)
+
+        myLabel_year = MyLabel('年', d)
+        myLabel_year.move(300, 180)
+
+        def on_month_change():
+            myComboBox_day.clear()
+            if myComboBox_month.currentText() != '':
+                myComboBox_day.addItems([str(x) for x in sorted(list(self.date_dict[int(myComboBox_year.currentText())]
+                                                    [int(myComboBox_month.currentText())].keys()))])
+
+        myComboBox_month = MyComboBox([str(x) for x in range(1, 13)], d)
+        myComboBox_month.move(320, 180)
+        myComboBox_month.currentIndexChanged.connect(on_month_change)
+
+        myLabel_month = MyLabel('月', d)
+        myLabel_month.move(420, 180)
+
+        def on_day_change():
+            myComboBox_hour.clear()
+            if myComboBox_day.currentText() != '':
+                myComboBox_hour.addItems([str(x) for x in sorted(list(self.date_dict[int(myComboBox_year.currentText())]
+                                              [int(myComboBox_month.currentText())][int(myComboBox_day.currentText())]))])
+
+        myComboBox_day = MyComboBox([str(x) for x in range(1, 32)], d)
+        myComboBox_day.move(440, 180)
+        myComboBox_day.currentIndexChanged.connect(on_day_change)
+
+        myLabel_day = MyLabel('日', d)
+        myLabel_day.move(540, 180)
+
+        myComboBox_hour = MyComboBox([str(x) for x in range(0, 24)], d)
+        myComboBox_hour.move(560, 180)
+
+        myLabel_hour = MyLabel('时', d)
+        myLabel_hour.move(660, 180)
+
+        def on_userName_change():
+            self.selectUser()
+            update_date()
+
+        def update_date():
+            userContent = get_user_by_id(self.nowUserId)
+            timeType = userContent['timeType']
+            myLabel_year.hide()
+            myComboBox_year.hide()
+            myLabel_month.hide()
+            myComboBox_month.hide()
+            myLabel_day.hide()
+            myComboBox_day.hide()
+            myLabel_hour.hide()
+            myComboBox_hour.hide()
+            if timeType != 5:
+                myLabel_year.show()
+                myComboBox_year.show()
+                if timeType > 1:
+                    myLabel_month.show()
+                    myComboBox_month.show()
+                    if timeType > 2:
+                        myLabel_day.show()
+                        myComboBox_day.show()
+                        if timeType > 3:
+                            myLabel_hour.show()
+                            myComboBox_hour.show()
+            self.date_dict = get_user_date_from_database(self.nowUserId)
+            myComboBox_year.clear()
+            myComboBox_year.addItems([str(x) for x in sorted(list(self.date_dict.keys()))])
+
+        def maintain_data_slot():
+            try:
+                d2 = MyDialog(d)
+                year = int(myComboBox_year.currentText())
+                month = int(myComboBox_month.currentText())
+                day = int(myComboBox_day.currentText())
+                hour = int(myComboBox_hour.currentText())
+                user_data = get_user_data_by_date_from_database(self.nowUserId, year, month, day, hour)
+            except ValueError:
+                return
+            user_data_id = user_data['id']
+            user = get_user_by_id(self.nowUserId)
+            timeType = user['timeType']
+
+            myLabel_title = MyLabel(user['userType'] + '-' + user['userName'] + '用户：', d2)
+            myLabel_title.move(100, 60)
+
+            myLabel_gasCondition = MyLabel('用气工况：', d2)
+            myLabel_gasCondition.move(100, 120)
+
+            def on_newYear_change():
+                if timeType > 2:
+                    if myComboBox_newMonth.currentText() == '2':
+                        current_year = int(myComboBox_newYear.currentText())
+                        while myComboBox_newDay.count() != 0:
+                            myComboBox_newDay.removeItem(0)
+                        if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                            myComboBox_newDay.addItems(day_dict['闰月'])
+                        else:
+                            myComboBox_newDay.addItems(day_dict['平月'])
+
+            myComboBox_newYear = MyComboBox([str(x) for x in range(2000, 2101)], d2)
+            myComboBox_newYear.move(200, 120)
+            myComboBox_newYear.currentIndexChanged.connect(on_newYear_change)
+            myComboBox_newYear.setCurrentIndex(year - 2000)
+            # myComboBox_year.addItems(list(range(2000, 2100)))
+
+            myLabel_newYear = MyLabel('年', d2)
+            myLabel_newYear.move(300, 120)
+
+            if timeType > 1:
+                def on_newMonth_change():
+                    if timeType > 2:
+                        myComboBox_newDay.clear()
+                        current_month = myComboBox_newMonth.currentText()
+                        if current_month == '2':
+                            current_year = int(myComboBox_newYear.currentText())
+                            if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                                myComboBox_newDay.addItems(day_dict['闰月'])
+                            else:
+                                myComboBox_newDay.addItems(day_dict['平月'])
+                        elif current_month in month_dict['大月']:
+                            myComboBox_newDay.addItems(day_dict['大月'])
+                        elif current_month in month_dict['小月']:
+                            myComboBox_newDay.addItems(day_dict['小月'])
+
+                myComboBox_newMonth = MyComboBox([str(x) for x in range(1, 13)], d2)
+                # myComboBox_newMonth.addItems(list(range(1, 13)))
+                myComboBox_newMonth.move(320, 120)
+                myComboBox_newMonth.currentIndexChanged.connect(on_newMonth_change)
+                myComboBox_newMonth.setCurrentIndex(month - 1)
+
+                myLabel_newMonth = MyLabel('月', d2)
+                myLabel_newMonth.move(420, 120)
+
+                if timeType > 2:
+                    def on_newDay_change():
+                        if timeType > 3:
+                            if myComboBox_newDay.currentText() == '':
+                                myComboBox_newHour.clear()
+                            else:
+                                myComboBox_newHour.addItems([str(x) for x in range(0, 24)])
+
+                    month_dict = {'大月': ['1', '3', '5', '7', '8', '10', '12'], '小月': ['4', '6', '9', '11']}
+                    day_dict = {'小月': [str(x) for x in range(1, 31)],
+                                '大月': [str(x) for x in range(1, 32)],
+                                '平月': [str(x) for x in range(1, 29)],
+                                '闰月': [str(x) for x in range(1, 30)]}
+                    myComboBox_newDay = MyComboBox([str(x) for x in range(1, 32)], d2)
+                    myComboBox_newDay.move(440, 120)
+                    myComboBox_newDay.currentIndexChanged.connect(on_newDay_change)
+                    myComboBox_newDay.setCurrentIndex(day - 1)
+
+                    myLabel_newDay = MyLabel('日', d2)
+                    myLabel_newDay.move(540, 120)
+                    if timeType > 3:
+                        myComboBox_newHour = MyComboBox([str(x) for x in range(0, 24)], d2)
+                        myComboBox_newHour.move(560, 120)
+                        myComboBox_newHour.setCurrentIndex(hour)
+
+                        myLabel_newHour = MyLabel('时', d2)
+                        myLabel_newHour.move(660, 120)
+
+            myLabel_gasNum = MyLabel('用气量：', d2)
+            myLabel_gasNum.move(100, 180)
+
+            myLineEdit_gasNum = MyLineEdit(d2)
+            myLineEdit_gasNum.move(200, 180)
+            myLineEdit_gasNum.setText(str(user_data['gasNum']))
+
+            myLabel_gasUnit = MyLabel(user['gasUnit'], d2)
+            myLabel_gasUnit.move(300, 180)
+
+            myLabel_userNum = MyLabel('用户数：', d2)
+            myLabel_userNum.move(100, 240)
+
+            myLineEdit_userNum = MyLineEdit(d2)
+            myLineEdit_userNum.move(200, 240)
+            myLineEdit_userNum.setText(str(user_data['userNum']))
+
+            myLabel_userUnit = MyLabel(user['userUnit'], d2)
+            myLabel_userUnit.move(300, 240)
+
+            myButton_insertUserData = MyButton("修改", d2)
+            myButton_insertUserData.move(100, 300)
+
+            myButton_cancel = MyButton("删除", d2)
+            myButton_cancel.move(300, 300)
+
+            def delete_user_data():
+                if not QtGui.QMessageBox.question(d2, '确认删除', '确认删除吗？', '确认', '取消'):
+                    delete_user_data_from_database(user_data_id)
+                    d2.close()
+                    update_date()
+
+            d2.connect(myButton_cancel, QtCore.SIGNAL("clicked()"), delete_user_data)
+
+            def update_user_data():
+                gasNum = myLineEdit_gasNum.text()
+                userNum = myLineEdit_userNum.text()
+                newYear = int(myComboBox_newYear.currentText())
+                newMonth = newDay = newHour = 0
+                if timeType > 1:
+                    if myComboBox_newMonth.currentText():
+                        newMonth = int(myComboBox_newMonth.currentText())
+                if timeType > 2:
+                    if myComboBox_newDay.currentText():
+                        newDay = int(myComboBox_newDay.currentText())
+                if timeType > 3:
+                    if myComboBox_newHour.currentText():
+                        newHour = int(myComboBox_newHour.currentText())
+                if not gasNum:
+                    QtGui.QMessageBox.warning(d2, "数据修改失败", "用气量不能为空！", "确定")
+                    return
+                if not userNum:
+                    QtGui.QMessageBox.warning(d2, "数据修改失败", "用户数不能为空！", "确定")
+                    return
+                try:
+                    gasNum = float(gasNum)
+                    userNum = int(userNum)
+                    update_user_data_from_database(user_data_id, gasNum, userNum, newYear, newMonth, newDay, newHour)
+                    QtGui.QMessageBox.information(d2, "数据修改成功", "修改成功！", "确定")
+                    d2.close()
+                    update_date()
+                except ValueError:
+                    QtGui.QMessageBox.warning(d2, "数据修改失败", "用气量和用户数必须为数字！", "确定")
+                except IntegrityError:
+                    QtGui.QMessageBox.warning(d2, '数据修改失败', '该日期的数据已被录入！', '确定')
+                except Exception as e:
+                    QtGui.QMessageBox.warning(d2, "数据修改失败", "出现未知错误……", "确定")
+                    raise e
+
+            d2.connect(myButton_insertUserData, QtCore.SIGNAL("clicked()"), update_user_data)
+
+            d2.setWindowTitle("修改用户数据")
+            d2.setWindowModality(QtCore.Qt.ApplicationModal)
+            d2.exec_()
+
+        myButton_search = MyButton('查询', d)
+        myButton_search.move(100, 240)
+        d.connect(myButton_search, QtCore.SIGNAL('clicked()'), maintain_data_slot)
+
+        myComboBox_userName.currentIndexChanged.connect(on_userName_change)
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        def update_userType():
+            userType_list = get_all_userType()
+            myComboBox_userType.clear()
+            myComboBox_userType.addItems(userType_list)
+        update_userType()
+
+        d.setWindowTitle("查询用户数据")
+        d.setWindowModality(QtCore.Qt.ApplicationModal)
+        d.exec_()
+
+    def display_maintain_data(self):
+        for i in self.all_component.values():
+            for j in i.values():
+                j.hide()
+        for i in self.all_component['maintain_data'].values():
+            i.show()

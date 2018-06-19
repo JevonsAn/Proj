@@ -172,3 +172,67 @@ def insert_user_data(userId, timeType, gasNum, userNum, year, month, day, hour):
         mysqlserver.exe(sql, (newTimeType, userId))
     mysqlserver.commit()
     mysqlserver.closeSQL()
+
+
+def check_admin(username, password):
+    mysql_server = Mysql()
+    sql = 'SELECT count(*) FROM administrator WHERE administrator.name = %s and administrator.password = %s'
+    mysql_server.exe(sql, (username, password))
+    for row in mysql_server.results():
+        if row[0] == 1:
+            return True
+        return False
+    mysql_server.closeSQL()
+
+
+def get_user_date(user_id):
+    date_dict = {}
+    mysql_server = Mysql()
+    sql = 'SELECT year, month, day, hour FROM userdata WHERE user_id = %s'
+    mysql_server.exe(sql, (user_id,))
+    for row in mysql_server.results():
+        year = row[0]
+        month = row[1]
+        day = row[2]
+        hour = row[3]
+        if year not in date_dict.keys():
+            date_dict[year] = {}
+        if month not in date_dict[year].keys():
+            date_dict[year][month] = {}
+        if day not in date_dict[year][month].keys():
+            date_dict[year][month][day] = set()
+        if hour not in date_dict[year][month][day]:
+            date_dict[year][month][day].add(hour)
+    mysql_server.closeSQL()
+    return date_dict
+
+
+def get_user_data_by_date(user_id, year, month, day, hour):
+    user_data = {}
+    mysql_server = Mysql()
+    sql = 'SELECT id, gasNum, userNum FROM userdata WHERE user_id = %s and year = %s and month = %s and day = %s and ' \
+          'hour = %s'
+    mysql_server.exe(sql, (user_id, year, month, day, hour))
+    for row in mysql_server.results():
+        user_data['id'] = row[0]
+        user_data['gasNum'] = row[1]
+        user_data['userNum'] = row[2]
+    mysql_server.closeSQL()
+    return user_data
+
+
+def update_user_data(user_data_id, gas_num, user_num, year, month, day, hour):
+    mysql_server = Mysql()
+    sql = 'UPDATE userdata SET gasNum = %s, userNum = %s, year = %s, month = %s, day = %s, hour = %s ' \
+          'WHERE userdata.id = %s'
+    mysql_server.exe(sql, (gas_num, user_num, year, month, day, hour, user_data_id))
+    mysql_server.commit()
+    mysql_server.closeSQL()
+
+
+def delete_user_data(user_data_id):
+    mysql_server = Mysql()
+    sql = 'DELETE FROM userdata WHERE id = %s'
+    mysql_server.exe(sql, (user_data_id, ))
+    mysql_server.commit()
+    mysql_server.closeSQL()

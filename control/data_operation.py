@@ -1,3 +1,5 @@
+from database.sqlquery import insert_weather, insert_user_data, check_admin, get_user_date, get_user_data_by_date, \
+    update_user_data, delete_user_data
 from database.sqlquery import insert_weather, insert_user_data
 from database.sqlquery import get_all_user_gasIndex
 import time
@@ -18,6 +20,28 @@ def datetime_to_timestamp(datetime, format):
 
 def add_user_data(userId, timeType, gasNum, userNum, year, month, day, hour):
     insert_user_data(userId, timeType, gasNum, userNum, year, month, day, hour)
+
+
+def check_admin_password(username, password):
+    return check_admin(username, password)
+
+
+def get_user_date_from_database(user_id):
+    return get_user_date(user_id)
+
+
+def get_user_data_by_date_from_database(user_id, year, month, day, hour):
+    return get_user_data_by_date(user_id, year, month, day, hour)
+
+
+def update_user_data_from_database(user_data_id, gas_num, user_num, year, month, day, hour):
+    update_user_data(user_data_id, gas_num, user_num, year, month, day, hour)
+
+
+def delete_user_data_from_database(user_data_id):
+    delete_user_data(user_data_id)
+
+
 
 
 def export_gasIndex(timeType, start_time, stop_time, file_path):

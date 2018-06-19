@@ -30,9 +30,9 @@ def get_userNames_by_userType(userType):
 def get_user_by_id(id):
     return gubi(id)
 
+
 def get_user(userType, userName):
     return gu(userType, userName)
-
 
 
 def update_user(id, userType, userName, gasUnit, userUnit):
