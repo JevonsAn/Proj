@@ -2,8 +2,6 @@ import time
 import datetime
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
-from control.user_operation import get_all_userType, get_userNames_by_userType, add_user, get_user_by_id, \
-    update_user, delete_user
 from control.data_operation import add_weather, datetime_to_timestamp, add_user_data, check_admin_password, \
     get_user_date_from_database, get_user_data_by_date_from_database, update_user_data_from_database, \
     delete_user_data_from_database
@@ -12,6 +10,7 @@ from control.data_operation import add_weather, datetime_to_timestamp, add_user_
 from control.user_operation import get_user_by_id, update_user, delete_user
 from control.data_operation import export_gasIndex
 from pymysql import IntegrityError
+from control.gas_index_opeartion import get_gas_index_from_database
 
 
 class MyButton(QtGui.QPushButton):
@@ -180,6 +179,12 @@ class MainWindow(QtGui.QMainWindow):
         self.dataExport_gasIndex_fuc()
         self.connect(dataExport_gasIndex, QtCore.SIGNAL('triggered()'), self.display_dataExport_gasIndex)
         data_menu.addAction(dataExport_gasIndex)
+
+        search_gas_index = QtGui.QAction('用气指标查询', self)
+        search_gas_index.setStatusTip('用气指标查询')
+        self.search_gas_index_fuc()
+        self.connect(search_gas_index, QtCore.SIGNAL('triggered()'), self.display_search_gas_index)
+        yongqi_menu.addAction(search_gas_index)
 
     def create_user_fuc(self):
         create_user_component_dict = {}
@@ -435,7 +440,6 @@ class MainWindow(QtGui.QMainWindow):
                     QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
 
         self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
-
 
     def selectionchange(self):
         sender = self.sender()
@@ -871,7 +875,6 @@ class MainWindow(QtGui.QMainWindow):
             pr.all_component["dataExport_gasIndex"]["myLabel_month"].show()
             pr.all_component["dataExport_gasIndex"]["myLabel_month2"].show()
 
-
     def center(self):
         screen = QtGui.QDesktopWidget().screenGeometry()
         size = self.geometry()
@@ -1253,3 +1256,112 @@ class MainWindow(QtGui.QMainWindow):
                 j.hide()
         for i in self.all_component['maintain_data'].values():
             i.show()
+
+    def search_gas_index_fuc(self):
+        search_gas_index_component_dict = {}
+
+        myLabel_indexType = MyLabel('指标类型：', self)
+        myLabel_indexType.move(100, 60)
+        search_gas_index_component_dict['myLabel_indexType'] = myLabel_indexType
+
+        myComboBox_indexType = MyComboBox(['年', '月'], self)
+        myComboBox_indexType.move(200, 60)
+        search_gas_index_component_dict['myComboBox_indexType'] = myComboBox_indexType
+
+        myLabel_userType = MyLabel('用户类型：', self)
+        myLabel_userType.move(100, 120)
+        search_gas_index_component_dict['myLabel_userType'] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 120)
+        search_gas_index_component_dict['myComboBox_userType'] = myComboBox_userType
+
+        myLabel_userName = MyLabel('用户名称：', self)
+        myLabel_userName.move(100, 180)
+        search_gas_index_component_dict['myLabel_userName'] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 180)
+        search_gas_index_component_dict['myComboBOx_userName'] = myComboBox_userName
+
+        myLabel_date = MyLabel('日期：', self)
+        myLabel_date.move(100, 240)
+        search_gas_index_component_dict['myLabel_date'] = myLabel_date
+
+        myComboBox_year = MyComboBox([str(x) for x in range(2000, 2101)], self)
+        myComboBox_year.move(200, 240)
+        search_gas_index_component_dict['myComboBox_year'] = myComboBox_year
+
+        myLabel_year = MyLabel('年', self)
+        myLabel_year.move(300, 240)
+        search_gas_index_component_dict['myLabel_year'] = myLabel_year
+
+        myComboBox_month = MyComboBox([str(x) for x in range(1, 13)], self)
+        myComboBox_month.move(320, 240)
+        search_gas_index_component_dict['myComboBox_month'] = myComboBox_month
+
+        myLabel_month = MyLabel('月', self)
+        myLabel_month.move(420, 240)
+        search_gas_index_component_dict['myLabel_month'] = myLabel_month
+
+        myButton_search = MyButton('查询', self)
+        myButton_search.move(100, 300)
+        search_gas_index_component_dict['myButton_search'] = myButton_search
+
+        myLabel_indexTitle = MyLabel('用气指标：', self)
+        myLabel_indexTitle.move(500, 150)
+        search_gas_index_component_dict['myLabel_indexTitle'] = myLabel_indexTitle
+
+        myLabel_index = MyLabel('', self)
+        myLabel_index.move(600, 150)
+        search_gas_index_component_dict['myLabel_index'] = myLabel_index
+
+        def on_indexType_change():
+            if myComboBox_indexType.currentText() == '年':
+                myComboBox_month.hide()
+                myLabel_month.hide()
+            else:
+                myComboBox_month.show()
+                myLabel_month.show()
+
+        def search_gas_index():
+            index_type = myComboBox_indexType.currentText()
+            user_id = self.nowUserId
+            user_content = get_user_by_id(user_id)
+            year = int(myComboBox_year.currentText())
+            month = int(myComboBox_month.currentText())
+            gas_index = get_gas_index_from_database(user_id, index_type, year, month)
+            if gas_index is None:
+                gas_index = 0
+            if gas_index == -1:
+                QtGui.QMessageBox.warning(self, '查询失败', '该用户没有用气数据', '确认')
+                return
+            if gas_index == -2:
+                QtGui.QMessageBox.warning(self, '查询失败', '该用户没有月用气数据', '确认')
+                return
+            myLabel_index.setText(('%.2f' % gas_index) + ' ' + user_content['gasUnit'] + '/' + user_content['userUnit'])
+
+        myComboBox_indexType.currentIndexChanged.connect(on_indexType_change)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        self.connect(myButton_search, QtCore.SIGNAL('clicked()'), search_gas_index)
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        self.all_component['search_gas_index'] = search_gas_index_component_dict
+
+        for i in search_gas_index_component_dict.values():
+            i.hide()
+
+    def display_search_gas_index(self):
+        for i in self.all_component.values():
+            for j in i.values():
+                j.hide()
+        for i in self.all_component['search_gas_index'].values():
+            i.show()
+
+        user_type = get_all_userType()
+        self.all_component['search_gas_index']['myComboBox_userType'].clear()
+        self.all_component['search_gas_index']['myComboBox_userType'].addItems(user_type)
+        self.all_component['search_gas_index']['myComboBox_month'].hide()
+        self.all_component['search_gas_index']['myLabel_month'].hide()
+

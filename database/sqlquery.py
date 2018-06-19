@@ -27,6 +27,26 @@ def get_all_userType():
     return userTypes
 
 
+def get_gas_index(user_id, index_type, year, month):
+    mysql_server = Mysql()
+    sql = 'SELECT timeType FROM user WHERE id = %s'
+    mysql_server.exe(sql, (user_id, ))
+    for row in mysql_server.results():
+        time_type = row[0]
+    if time_type == 5:
+        return -1
+    if index_type == '年':
+        sql = 'SELECT sum(gasNum / userNum) FROM userdata WHERE user_id = %s and year = %s'
+        mysql_server.exe(sql, (user_id, year))
+    else:
+        if time_type == 1:
+            return -2
+        sql = 'SELECT sum(gasNum / userNum) FROM userdata WHERE user_id = %s and year = %s and month = %s'
+        mysql_server.exe(sql, (user_id, year, month))
+    for row in mysql_server.results():
+        return row[0]
+
+
 def get_all_user_gasIndex(timeType, start_time, stop_time):
     mysqlserver = Mysql()
     timeType2Int = {"年": 1, "月": 2, "日": 3, "小时": 4}
