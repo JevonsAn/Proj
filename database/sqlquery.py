@@ -27,6 +27,42 @@ def get_all_userType():
     return userTypes
 
 
+def get_all_user_gasIndex(timeType, start_time, stop_time):
+    mysqlserver = Mysql()
+    timeType2Int = {"年": 1, "月": 2, "日": 3, "小时": 4}
+    year_sql = "select u.userType, u.userName, sum(d.gasNum / d.userNum), u.gasUnit, u.userUnit from user u, userdata d " \
+               "where u.id = d.user_id and u.timeType >= %s and d.year >= %s and d.year <= %s group by d.user_id;"
+    month_sql = "select u.userType, u.userName, sum(d.gasNum / d.userNum), u.gasUnit, u.userUnit from user u, userdata d " \
+                "where u.id = d.user_id and u.timeType >= %s and (d.year, d.month) >= (%s, %s) and (d.year, d.month) <= (%s, %s) group by d.user_id;"
+    if timeType == "年":
+        sql = year_sql
+        params = (timeType2Int[timeType], int(start_time), int(stop_time))
+    elif timeType == "月":
+        sql = month_sql
+        params = (
+        timeType2Int[timeType], int(start_time[:5]), int(start_time[5:]), int(stop_time[:5]), int(stop_time[5:]))
+    else:
+        raise ValueError("不应该的时间指标类型")
+
+    print(sql % params)
+    mysqlserver.exe(sql, params)
+
+    gasIndex = []
+    for row in mysqlserver.results():
+        index = []
+        # index["useType"] = row[0]
+        # index["useName"] = row[1]
+        # index["gasIndex"] = row[2]
+        # index["unit"] = "%s / %s · %s" % (row[3], row[4], timeType)
+        index.append(row[0])
+        index.append(row[1])
+        index.append(row[2])
+        index.append("%s / %s · %s" % (row[3], row[4], timeType))
+        gasIndex.append(index)
+    mysqlserver.closeSQL()
+    return gasIndex
+
+
 def get_userNames_by_userType(userType):
     mysqlserver = Mysql()
     sql = "SELECT userName, id FROM data.user WHERE userType=%s;"

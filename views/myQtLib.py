@@ -1,12 +1,11 @@
 import time
+import datetime
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
-from control.user_operation import get_user_by_id, update_user
-from control.user_operation import add_user
 from control.data_operation import add_weather, datetime_to_timestamp, add_user_data
 from control.user_operation import get_user_by_id, update_user, delete_user
-from control.user_operation import datetime_to_timestamp
+from control.data_operation import export_gasIndex
 from pymysql import IntegrityError
 
 
@@ -357,9 +356,9 @@ class MainWindow(QtGui.QMainWindow):
         myLabel_stopTime.move(100, 180)
         dataExport_gasIndex_component_dict["myLabel_stopTime"] = myLabel_stopTime
 
-        myComboBox_stopTime = MyComboBox([str(s) for s in range(2000, 2051)], self)
-        myComboBox_stopTime.move(200, 180)
-        dataExport_gasIndex_component_dict["myComboBox_stopTime"] = myComboBox_stopTime
+        myComboBox_stopTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_stopTime_year.move(200, 180)
+        dataExport_gasIndex_component_dict["myComboBox_stopTime_year"] = myComboBox_stopTime_year
         myLabel_year2 = MyLabel(" 年", self)
         myLabel_year2.move(300, 180)
         myLabel_year2.resize(50, 30)
@@ -397,7 +396,34 @@ class MainWindow(QtGui.QMainWindow):
         for x in dataExport_gasIndex_component_dict:
             dataExport_gasIndex_component_dict[x].hide()
 
+        def dataExportButtonSlot():
+            timeType = myComboBox_indexType.currentText()
+            if timeType == "年":
+                start_time = myComboBox_startTime_year.currentText()
+                stop_time = myComboBox_stopTime_year.currentText()
+            elif timeType == "月":
+                start_time = myComboBox_startTime_year.currentText() + "%2d" % (
+                    int(myComboBox_startTime_month.currentText()))
+                stop_time = myComboBox_stopTime_year.currentText() + "%2d" % (
+                    int(myComboBox_stopTime_month.currentText()))
+            else:
+                raise RuntimeError("不存在的指标类型")
 
+            now_time = "%4d%2d" % (datetime.datetime.now().year, datetime.datetime.now().month)
+            if start_time > stop_time:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
+            elif start_time > now_time or stop_time > now_time:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "不能选择未来的时间", "确认")
+            else:
+                file_path = QtGui.QFileDialog.getSaveFileName(self, 'save file', "用气指标",
+                                                              "excel files (*.xls);;all files(*.*)")
+                res = export_gasIndex(timeType, start_time, stop_time, file_path)
+                if res[0]:
+                    QtGui.QMessageBox.information(pr, "数据导出成功", "数据导出成功！", "确认")
+                else:
+                    QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
+
+        self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
 
 
     def selectionchange(self):

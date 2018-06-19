@@ -1,4 +1,5 @@
 from database.sqlquery import insert_weather, insert_user_data
+from database.sqlquery import get_all_user_gasIndex
 import time
 
 
@@ -17,3 +18,29 @@ def datetime_to_timestamp(datetime, format):
 
 def add_user_data(userId, timeType, gasNum, userNum, year, month, day, hour):
     insert_user_data(userId, timeType, gasNum, userNum, year, month, day, hour)
+
+
+def export_gasIndex(timeType, start_time, stop_time, file_path):
+    def export_to_file(data_list, file_p):
+        import xlwt
+        wb = xlwt.Workbook()
+        ws = wb.add_sheet('所有用户的年用气指标')
+        ws.write(0, 0, "用户类型")
+        ws.write(0, 1, "用户名称")
+        ws.write(0, 2, "用气指标")
+        ws.write(0, 3, "指标单位")
+
+        for i, row in enumerate(data_list):
+            for j, content in enumerate(row):
+                ws.write(i + 1, j, content)
+
+        wb.save(file_p)
+
+    res = [True, ""]
+    try:
+        gasIndex_list = get_all_user_gasIndex(timeType, start_time, stop_time)
+        export_to_file(gasIndex_list, file_path)
+    except Exception as e:
+        res[0] = False
+        res[1] = str(e)
+    return res
