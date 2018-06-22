@@ -1,4 +1,4 @@
-from database.sqlquery import insert_weather, insert_user_data, check_admin, get_user_date, get_user_data_by_date, \
+from database.sqlquery import check_admin, get_user_date, get_user_data_by_date, \
     update_user_data, delete_user_data
 from database.sqlquery import insert_weather, insert_user_data
 from database.sqlquery import get_all_user_gasIndex

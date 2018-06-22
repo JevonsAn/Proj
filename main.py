@@ -7,6 +7,7 @@ def main():
     app = QtGui.QApplication(sys.argv)
     w = MainWindow()
     w.show()
+    w.display_dataExport_uneven()
     sys.exit(app.exec_())
 
 

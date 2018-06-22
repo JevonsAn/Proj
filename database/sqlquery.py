@@ -30,10 +30,11 @@ def get_all_userType():
 def get_all_user_gasIndex(timeType, start_time, stop_time):
     mysqlserver = Mysql()
     timeType2Int = {"年": 1, "月": 2, "日": 3, "小时": 4}
+    # 加一列当前时间
     year_sql = "select u.userType, u.userName, sum(d.gasNum / d.userNum), u.gasUnit, u.userUnit from user u, userdata d " \
-               "where u.id = d.user_id and u.timeType >= %s and d.year >= %s and d.year <= %s group by d.user_id;"
+               "where u.id = d.user_id and u.timeType >= %s and d.year >= %s and d.year <= %s group by d.user_id, d.year;"
     month_sql = "select u.userType, u.userName, sum(d.gasNum / d.userNum), u.gasUnit, u.userUnit from user u, userdata d " \
-                "where u.id = d.user_id and u.timeType >= %s and (d.year, d.month) >= (%s, %s) and (d.year, d.month) <= (%s, %s) group by d.user_id;"
+                "where u.id = d.user_id and u.timeType >= %s and (d.year, d.month) >= (%s, %s) and (d.year, d.month) <= (%s, %s) group by d.user_id, d.month, d.year;"
     if timeType == "年":
         sql = year_sql
         params = (timeType2Int[timeType], int(start_time), int(stop_time))

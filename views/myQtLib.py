@@ -2,10 +2,8 @@ import time
 import datetime
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
-from control.user_operation import get_all_userType, get_userNames_by_userType, add_user, get_user_by_id, \
-    update_user, delete_user
-from control.data_operation import add_weather, datetime_to_timestamp, add_user_data, check_admin_password, \
-    get_user_date_from_database, get_user_data_by_date_from_database, update_user_data_from_database, \
+from control.data_operation import check_admin_password, get_user_date_from_database, \
+    get_user_data_by_date_from_database, update_user_data_from_database, \
     delete_user_data_from_database
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
 from control.data_operation import add_weather, datetime_to_timestamp, add_user_data
@@ -180,6 +178,12 @@ class MainWindow(QtGui.QMainWindow):
         self.dataExport_gasIndex_fuc()
         self.connect(dataExport_gasIndex, QtCore.SIGNAL('triggered()'), self.display_dataExport_gasIndex)
         data_menu.addAction(dataExport_gasIndex)
+
+        dataExport_uneven = QtGui.QAction('导出不均匀系数', self)
+        dataExport_uneven.setStatusTip('导出不均匀系数')
+        self.dataExport_uneven_fuc()
+        self.connect(dataExport_uneven, QtCore.SIGNAL('triggered()'), self.display_dataExport_uneven)
+        data_menu.addAction(dataExport_uneven)
 
     def create_user_fuc(self):
         create_user_component_dict = {}
@@ -436,6 +440,192 @@ class MainWindow(QtGui.QMainWindow):
 
         self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
 
+    def dataExport_uneven_fuc(self):
+        dataExport_uneven_component_dict = {}
+        myLabel_indexType = MyLabel("指标类型 : ", self)
+        myLabel_indexType.move(100, 60)
+        dataExport_uneven_component_dict["myLabel_indexType"] = myLabel_indexType
+
+        myComboBox_indexType = MyComboBox(["年", "月", "日", "小时", ], self)
+        myComboBox_indexType.move(200, 60)
+        dataExport_uneven_component_dict["myComboBox_indexType"] = myComboBox_indexType
+
+        myLabel_userType = MyLabel("用户类型 : ", self)
+        myLabel_userType.move(100, 120)
+        dataExport_uneven_component_dict["myLabel_userType"] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 120)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        dataExport_uneven_component_dict["myComboBox_userType"] = myComboBox_userType
+
+        myLabel_userName = MyLabel("用户名称 : ", self)
+        myLabel_userName.move(100, 180)
+        dataExport_uneven_component_dict["myLabel_userName"] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 180)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        dataExport_uneven_component_dict["myComboBox_userName"] = myComboBox_userName
+
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        myLabel_startTime = MyLabel("开始日期 : ", self)
+        myLabel_startTime.move(100, 240)
+        dataExport_uneven_component_dict["myLabel_startTime"] = myLabel_startTime
+
+        myComboBox_startTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_startTime_year.move(200, 240)
+        dataExport_uneven_component_dict["myComboBox_startTime_year"] = myComboBox_startTime_year
+        myLabel_year = MyLabel(" 年", self)
+        myLabel_year.move(300, 240)
+        myLabel_year.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_year"] = myLabel_year
+
+        myComboBox_startTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_startTime_month.move(350, 240)
+        dataExport_uneven_component_dict["myComboBox_startTime_month"] = myComboBox_startTime_month
+        myLabel_month = MyLabel(" 月", self)
+        myLabel_month.move(450, 240)
+        myLabel_month.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_month"] = myLabel_month
+
+        myComboBox_startTime_day = MyComboBox([str(s) for s in range(1, 31)], self)
+        myComboBox_startTime_day.move(500, 240)
+        dataExport_uneven_component_dict["myComboBox_startTime_day"] = myComboBox_startTime_day
+        myLabel_day = MyLabel(" 日", self)
+        myLabel_day.move(600, 240)
+        myLabel_day.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_day"] = myLabel_day
+
+        myComboBox_startTime_hour = MyComboBox([str(s) for s in range(1, 25)], self)
+        myComboBox_startTime_hour.move(650, 240)
+        dataExport_uneven_component_dict["myComboBox_startTime_hour"] = myComboBox_startTime_hour
+        myLabel_hour = MyLabel(" 小时", self)
+        myLabel_hour.move(750, 240)
+        myLabel_hour.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_hour"] = myLabel_hour
+
+        myLabel_stopTime = MyLabel("结束日期 : ", self)
+        myLabel_stopTime.move(100, 300)
+        dataExport_uneven_component_dict["myLabel_stopTime"] = myLabel_stopTime
+
+        myComboBox_stopTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_stopTime_year.move(200, 300)
+        dataExport_uneven_component_dict["myComboBox_stopTime_year"] = myComboBox_stopTime_year
+        myLabel_year2 = MyLabel(" 年", self)
+        myLabel_year2.move(300, 300)
+        myLabel_year2.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_year2"] = myLabel_year2
+
+        myComboBox_stopTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_stopTime_month.move(350, 300)
+        dataExport_uneven_component_dict["myComboBox_stopTime_month"] = myComboBox_stopTime_month
+        myLabel_month2 = MyLabel(" 月", self)
+        myLabel_month2.move(450, 300)
+        myLabel_month2.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_month2"] = myLabel_month2
+
+        myComboBox_stopTime_day = MyComboBox([str(s) for s in range(1, 31)], self)
+        myComboBox_stopTime_day.move(500, 300)
+        dataExport_uneven_component_dict["myComboBox_stopTime_day"] = myComboBox_stopTime_day
+        myLabel_day2 = MyLabel(" 日", self)
+        myLabel_day2.move(600, 300)
+        myLabel_day2.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_day2"] = myLabel_day2
+
+        myComboBox_stopTime_hour = MyComboBox([str(s) for s in range(1, 25)], self)
+        myComboBox_stopTime_hour.move(650, 300)
+        dataExport_uneven_component_dict["myComboBox_stopTime_hour"] = myComboBox_stopTime_hour
+        myLabel_hour2 = MyLabel(" 小时", self)
+        myLabel_hour2.move(750, 300)
+        myLabel_hour2.resize(50, 30)
+        dataExport_uneven_component_dict["myLabel_hour2"] = myLabel_hour2
+
+        myButton_export = MyButton("导出", self)
+        myButton_export.move(100, 360)
+        dataExport_uneven_component_dict["myButton_export"] = myButton_export
+
+        month_dict = {'大月': ['1', '3', '5', '7', '8', '10', '12'], '小月': ['4', '6', '9', '11']}
+        day_dict = {'小月': [str(x) for x in range(1, 31)], '大月': [str(x) for x in range(1, 32)],
+                    '平月': [str(x) for x in range(1, 29)], '闰月': [str(x) for x in range(1, 30)]}
+
+        def on_year_change():
+            sender = self.sender()
+            if sender == myComboBox_startTime_year:
+                month = myComboBox_startTime_month
+                day = myComboBox_startTime_day
+            elif sender == myComboBox_stopTime_year:
+                month = myComboBox_stopTime_month
+                day = myComboBox_stopTime_day
+            else:
+                return
+
+            if month.currentText() == '2':
+                current_year = int(sender.currentText())
+                while day.count() != 0:
+                    day.removeItem(0)
+                if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                    day.addItems(day_dict['闰月'])
+                else:
+                    day.addItems(day_dict['平月'])
+
+        def on_month_change():
+            sender = self.sender()
+            if sender == myComboBox_startTime_month:
+                year = myComboBox_startTime_year
+                day = myComboBox_startTime_day
+            elif sender == myComboBox_stopTime_month:
+                year = myComboBox_stopTime_year
+                day = myComboBox_stopTime_day
+            else:
+                return
+
+            day.clear()
+            current_month = sender.currentText()
+            if current_month == '2':
+                current_year = int(year.currentText())
+                if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                    day.addItems(day_dict['闰月'])
+                else:
+                    day.addItems(day_dict['平月'])
+            elif current_month in month_dict['大月']:
+                day.addItems(day_dict['大月'])
+            elif current_month in month_dict['小月']:
+                day.addItems(day_dict['小月'])
+
+        pr = self
+        month_component_list = [myComboBox_startTime_month, myComboBox_stopTime_month, myLabel_month, myLabel_month2]
+        day_component_list = [myComboBox_startTime_day, myComboBox_stopTime_day, myLabel_day, myLabel_day2]
+        hour_component_list = [myComboBox_startTime_hour, myComboBox_stopTime_hour, myLabel_hour, myLabel_hour2]
+
+        def selectionChange():
+            if myComboBox_indexType.currentIndex() == 0:  # 指标类型是年
+                for x in month_component_list + day_component_list + hour_component_list:
+                    x.hide()
+            elif myComboBox_indexType.currentIndex() == 1:  # 指标类型是月
+                for x in day_component_list + hour_component_list:
+                    x.hide()
+                for x in month_component_list:
+                    x.show()
+            elif myComboBox_indexType.currentIndex() == 2:
+                for x in hour_component_list:
+                    x.hide()
+                for x in day_component_list + month_component_list:
+                    x.show()
+            elif myComboBox_indexType.currentIndex() == 3:  # 指标类型是小时
+                for x in month_component_list + day_component_list + hour_component_list:
+                    x.show()
+
+        myComboBox_startTime_year.currentIndexChanged.connect(on_year_change)
+        myComboBox_startTime_month.currentIndexChanged.connect(on_month_change)
+        myComboBox_stopTime_year.currentIndexChanged.connect(on_year_change)
+        myComboBox_stopTime_month.currentIndexChanged.connect(on_month_change)
+        myComboBox_indexType.currentIndexChanged.connect(selectionChange)
+        self.all_component["dataExport_uneven"] = dataExport_uneven_component_dict
+
+        for x in dataExport_uneven_component_dict:
+            dataExport_uneven_component_dict[x].hide()
 
     def selectionchange(self):
         sender = self.sender()
@@ -443,11 +633,7 @@ class MainWindow(QtGui.QMainWindow):
         reciever = self.comboBoxPair[sender]
         # print("allcount:" + str(reciever.count()))
 
-        while reciever.count() != 0:
-            reciever.removeItem(0)
-        # for i in range(reciever.count()):
-        #     reciever.removeItem(i)
-        # print("allcountnow:" + str(reciever.count()))
+        reciever.clear()
 
         now_userType = sender.itemText(sender.currentIndex())
 
@@ -463,7 +649,7 @@ class MainWindow(QtGui.QMainWindow):
             if self.comboBoxPair[x] == sender:
                 last_sender = x
         if sender:
-            now_userName = sender.itemText(sender.currentIndex())
+            now_userName = sender.currentText()
         if last_sender:
             now_userType = last_sender.itemText(last_sender.currentIndex())
             if now_userType in self.userContent:
@@ -870,6 +1056,64 @@ class MainWindow(QtGui.QMainWindow):
             pr.all_component["dataExport_gasIndex"]["myComboBox_stopTime_month"].show()
             pr.all_component["dataExport_gasIndex"]["myLabel_month"].show()
             pr.all_component["dataExport_gasIndex"]["myLabel_month2"].show()
+
+    def display_dataExport_uneven(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                self.all_component[k][x].hide()
+
+        for x in self.all_component['dataExport_uneven']:
+            self.all_component['dataExport_uneven'][x].show()
+
+        def selectionChange():
+            month_component_list = [self.all_component["dataExport_uneven"]["myComboBox_startTime_month"],
+                                    self.all_component["dataExport_uneven"]["myComboBox_stopTime_month"],
+                                    self.all_component["dataExport_uneven"]["myLabel_month"],
+                                    self.all_component["dataExport_uneven"]["myLabel_month2"]]
+            day_component_list = [self.all_component["dataExport_uneven"]["myComboBox_startTime_day"],
+                                  self.all_component["dataExport_uneven"]["myComboBox_stopTime_day"],
+                                  self.all_component["dataExport_uneven"]["myLabel_day"],
+                                  self.all_component["dataExport_uneven"]["myLabel_day2"]]
+            hour_component_list = [self.all_component["dataExport_uneven"]["myComboBox_startTime_hour"],
+                                   self.all_component["dataExport_uneven"]["myComboBox_stopTime_hour"],
+                                   self.all_component["dataExport_uneven"]["myLabel_hour"],
+                                   self.all_component["dataExport_uneven"]["myLabel_hour2"]]
+            currentIndex = self.all_component["dataExport_uneven"]["myComboBox_indexType"].currentIndex()
+            if currentIndex == 0:  # 指标类型是年
+                for x in month_component_list + day_component_list + hour_component_list:
+                    x.hide()
+            elif currentIndex == 1:  # 指标类型是月
+                for x in day_component_list + hour_component_list:
+                    x.hide()
+                for x in month_component_list:
+                    x.show()
+            elif currentIndex == 2:
+                for x in hour_component_list:
+                    x.hide()
+                for x in day_component_list + month_component_list:
+                    x.show()
+            elif currentIndex == 3:  # 指标类型是小时
+                for x in month_component_list + day_component_list + hour_component_list:
+                    x.show()
+
+        selectionChange()
+
+        userType_list = get_all_userType()
+        cb = self.all_component["dataExport_uneven"]["myComboBox_userType"]
+        cb.clear()
+        cb.addItems(userType_list)
+
+        # pr = self
+        # if pr.all_component["dataExport_uneven"]["myComboBox_indexType"].currentIndex() == 0:  # 指标类型是年
+        #     pr.all_component["dataExport_uneven"]["myComboBox_startTime_month"].hide()
+        #     pr.all_component["dataExport_uneven"]["myComboBox_stopTime_month"].hide()
+        #     pr.all_component["dataExport_uneven"]["myLabel_month"].hide()
+        #     pr.all_component["dataExport_uneven"]["myLabel_month2"].hide()
+        # elif pr.all_component["dataExport_uneven"]["myComboBox_indexType"].currentIndex() == 1:  # 指标类型是月
+        #     pr.all_component["dataExport_uneven"]["myComboBox_startTime_month"].show()
+        #     pr.all_component["dataExport_uneven"]["myComboBox_stopTime_month"].show()
+        #     pr.all_component["dataExport_uneven"]["myLabel_month"].show()
+        #     pr.all_component["dataExport_uneven"]["myLabel_month2"].show()
 
 
     def center(self):
