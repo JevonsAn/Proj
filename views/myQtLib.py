@@ -10,7 +10,8 @@ from control.data_operation import add_weather, datetime_to_timestamp, add_user_
 from control.user_operation import get_user_by_id, update_user, delete_user
 from control.data_operation import export_gasIndex
 from pymysql import IntegrityError
-from control.gas_index_opeartion import get_gas_index_from_database
+from control.gas_index_opeartion import get_gas_index_from_database, get_index_of_user_in_times_from_database, \
+    get_weather_in_times_from_database
 
 
 class MyButton(QtGui.QPushButton):
@@ -107,6 +108,102 @@ class MyWidget(QtGui.QWidget):
         self.connect(quit, QtCore.SIGNAL('clicked()'), QtGui.qApp, QtCore.SLOT('quit()'))
 
 
+class MyTable(QtGui.QTableWidget):
+    def __init__(self, parent, table, header):
+        QtGui.QTableWidget.__init__(self, parent)
+        rows_num = len(table)
+        columns_num = len(header)
+        self.setRowCount(rows_num)
+        self.setColumnCount(columns_num)
+        self.setHorizontalHeaderLabels(header)
+        self.setEditTriggers(QtGui.QTableWidget.NoEditTriggers)
+        self.resize(view_setting['TableWidth'], view_setting['TableHeight'])
+        for i in range(rows_num):
+            for j in range(columns_num):
+                self.setItem(i, j, QtGui.QTableWidgetItem(str(table[i][j])))
+                self.item(i, j).setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+
+
+class MyPainter(QtGui.QPainter):
+    def __init__(self, parent, leftBottom = (0, 0)):
+        super().__init__(parent)
+        self.leftBottom = leftBottom
+
+    def setLeftBottom(self, x, y):
+        self.leftBottom = (x, y)
+
+    def drawLine(self, x1, y1, x2, y2):
+        super().drawLine(self.leftBottom[0] + x1, self.leftBottom[1] - y1,
+                   self.leftBottom[0] + x2, self.leftBottom[1] - y2)
+
+    # def setPen(self, p):
+    #     super(MyPainter, self).setPen(p)
+    #
+    # def setBrush(self, p):
+    #     super(MyPainter, self).setBrush(p)
+
+
+class MyPaintDialog(QtGui.QDialog):
+    def __init__(self, parent, leftBottom):
+        super().__init__(parent)
+        self.setPalette(QtGui.QPalette(QtCore.Qt.white))
+        self.setAutoFillBackground(True)
+        self.pen = QtGui.QPen()
+        self.brush = QtGui.QBrush()
+        self.indexData = None
+        self.weatherData = None
+        width = view_setting['DialogWidth']
+        height = view_setting['DialogHeight']
+        self.resize(width, height)
+        self.leftBottom = leftBottom
+        self.canvasWidth = width
+        self.canvasHeight = height
+
+    def setIndexData(self, indexData):
+        self.indexData = indexData
+
+    def setWeatherData(self, weatherData):
+        self.weatherData = weatherData
+
+    def setPen(self, p):
+        self.pen = p
+        self.update()
+
+    def setBrush(self, b):
+        self.brush = b
+        self.update()
+
+    def myDrawLine(self, p, startPointX, startPointY, endPointX, endPointY):
+        p.drawLine(self.leftBottom[0] + startPointX, self.leftBottom[1] - startPointY,
+                   self.leftBottom[0] + endPointX, self.leftBottom[1] - endPointY)
+
+    def setCanvasSize(self, width, height):
+        self.canvasWidth = width
+        self.canvasHeight = height
+
+    def paintEvent(self, QPaintEvent):
+        p = MyPainter(self)
+        p.setPen(self.pen)
+        p.setBrush(self.brush)
+        p.setLeftBottom(self.leftBottom[0], self.leftBottom[1])
+        if self.indexData is not None:
+            self.paintIndex()
+        if self.weatherData is not None:
+            self.paintWeather()
+
+    # def paintIndex(self, p):
+    #     rowSpace = self.canvasWidth / len(self.indexData)
+    #     minNum = min([row[1] for row in self.indexData])
+    #     maxNum = max([row[1] for row in self.indexData])
+    #     scale = self.height() / (maxNum - minNum)
+    #     for row in self.indexData:
+    #
+    #
+    # def paintWeather(self):
+
+
+
+
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
@@ -185,6 +282,12 @@ class MainWindow(QtGui.QMainWindow):
         self.search_gas_index_fuc()
         self.connect(search_gas_index, QtCore.SIGNAL('triggered()'), self.display_search_gas_index)
         yongqi_menu.addAction(search_gas_index)
+
+        examine_index_result = QtGui.QAction('结果查看', self)
+        examine_index_result.setStatusTip('用气指标结果查看')
+        self.examine_index_result_fuc()
+        self.connect(examine_index_result, QtCore.SIGNAL('triggered()'), self.display_examine_index_result)
+        yongqi_menu.addAction(examine_index_result)
 
     def create_user_fuc(self):
         create_user_component_dict = {}
@@ -1362,6 +1465,149 @@ class MainWindow(QtGui.QMainWindow):
         user_type = get_all_userType()
         self.all_component['search_gas_index']['myComboBox_userType'].clear()
         self.all_component['search_gas_index']['myComboBox_userType'].addItems(user_type)
-        self.all_component['search_gas_index']['myComboBox_month'].hide()
-        self.all_component['search_gas_index']['myLabel_month'].hide()
+        if self.all_component['search_gas_index']['myComboBox_indexType'].currentText() == '年':
+            self.all_component['search_gas_index']['myComboBox_month'].hide()
+            self.all_component['search_gas_index']['myLabel_month'].hide()
+        return
+
+    def examine_index_result_fuc(self):
+        examine_index_result_component_dict = {}
+
+        myLabel_indexType = MyLabel('指标类型：', self)
+        myLabel_indexType.move(100, 60)
+        examine_index_result_component_dict['myLabel_indexType'] = myLabel_indexType
+
+        myComboBox_indexType = MyComboBox(['年', '月'], self)
+        myComboBox_indexType.move(200, 60)
+        examine_index_result_component_dict['myComboBox_indexType'] = myComboBox_indexType
+
+        myLabel_userType = MyLabel('用户类型：', self)
+        myLabel_userType.move(100, 120)
+        examine_index_result_component_dict['myLabel_userType'] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 120)
+        examine_index_result_component_dict['myComboBox_userType'] = myComboBox_userType
+
+        myLabel_userName = MyLabel('用户名称：', self)
+        myLabel_userName.move(100, 180)
+        examine_index_result_component_dict['myLabel_userName'] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 180)
+        examine_index_result_component_dict['myComboBOx_userName'] = myComboBox_userName
+
+        myLabel_startDate = MyLabel('开始日期：', self)
+        myLabel_startDate.move(100, 240)
+        examine_index_result_component_dict['myLabel_startDate'] = myLabel_startDate
+
+        myComboBox_startYear = MyComboBox([str(x) for x in range(2000, 2101)], self)
+        myComboBox_startYear.move(200, 240)
+        examine_index_result_component_dict['myComboBox_startYear'] = myComboBox_startYear
+
+        myLabel_startYear = MyLabel('年', self)
+        myLabel_startYear.move(300, 240)
+        examine_index_result_component_dict['myLabel_startYear'] = myLabel_startYear
+
+        myComboBox_startMonth = MyComboBox([str(x) for x in range(1, 13)], self)
+        myComboBox_startMonth.move(320, 240)
+        examine_index_result_component_dict['myComboBox_startMonth'] = myComboBox_startMonth
+
+        myLabel_startMonth = MyLabel('月', self)
+        myLabel_startMonth.move(420, 240)
+        examine_index_result_component_dict['myLabel_startMonth'] = myLabel_startMonth
+
+        myLabel_endDate = MyLabel('结束日期：', self)
+        myLabel_endDate.move(100, 300)
+        examine_index_result_component_dict['myLabel_endDate'] = myLabel_endDate
+
+        myComboBox_endYear = MyComboBox([str(x) for x in range(2000, 2101)], self)
+        myComboBox_endYear.move(200, 300)
+        examine_index_result_component_dict['myComboBox_endYear'] = myComboBox_endYear
+
+        myLabel_endYear = MyLabel('年', self)
+        myLabel_endYear.move(300, 300)
+        examine_index_result_component_dict['myLabel_endYear'] = myLabel_endYear
+
+        myComboBox_endMonth = MyComboBox([str(x) for x in range(1, 13)], self)
+        myComboBox_endMonth.move(320, 300)
+        examine_index_result_component_dict['myComboBox_endMonth'] = myComboBox_endMonth
+
+        myLabel_endMonth = MyLabel('月', self)
+        myLabel_endMonth.move(420, 300)
+        examine_index_result_component_dict['myLabel_endMonth'] = myLabel_endMonth
+
+        myButton_examine = MyButton('确认', self)
+        myButton_examine.move(100, 360)
+        examine_index_result_component_dict['myButton_examine'] = myButton_examine
+
+        def on_indexType_change():
+            if myComboBox_indexType.currentText() == '年':
+                myComboBox_startMonth.hide()
+                myLabel_startMonth.hide()
+                myComboBox_endMonth.hide()
+                myLabel_endMonth.hide()
+            else:
+                myComboBox_startMonth.show()
+                myLabel_startMonth.show()
+                myComboBox_endMonth.show()
+                myLabel_endMonth.show()
+
+        def on_button_click():
+            start_month = int(myComboBox_startMonth.currentText())
+            start_year = int(myComboBox_startYear.currentText())
+            end_month = int(myComboBox_endMonth.currentText())
+            end_year = int(myComboBox_endYear.currentText())
+            if (start_year, start_month) > (end_year, end_month):
+                QtGui.QMessageBox.warning(self, '查看失败', '开始时间不能晚于结束时间', '确定')
+                return
+            index_list = get_index_of_user_in_times_from_database(self.nowUserId, myComboBox_indexType.currentText(),
+                                                                  start_year, start_month, end_year, end_month)
+            weather_list = get_weather_in_times_from_database(myComboBox_indexType.currentText(), start_year,
+                                                              start_month, end_year, end_month)
+            self.examine_index_result_slot(index_list, weather_list)
+        myComboBox_indexType.currentIndexChanged.connect(on_indexType_change)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        self.connect(myButton_examine, QtCore.SIGNAL('clicked()'), on_button_click)
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        self.all_component['examine_index_result'] = examine_index_result_component_dict
+
+        for i in examine_index_result_component_dict.values():
+            i.hide()
+
+    def examine_index_result_slot(self, index_list, weather_list):
+        d = MyPaintDialog(self, (300, 400))
+        user_content = get_user_by_id(self.nowUserId)
+        unit = user_content['gasUnit'] + '/' + user_content['userUnit']
+        temp_index_list = index_list[:]
+        for row in temp_index_list:
+            row[1] = row[1] + ' ' + unit
+        myTable_index = MyTable(d, temp_index_list, ['日期', '用气指标'])
+        myTable_index.move(0, 0)
+
+        # d.setIndexData(index_list)
+        d.setWindowTitle("结果查看")
+        d.setWindowModality(QtCore.Qt.ApplicationModal)
+        d.exec_()
+
+    def display_examine_index_result(self):
+        for i in self.all_component.values():
+            for j in i.values():
+                j.hide()
+        for i in self.all_component['examine_index_result'].values():
+            i.show()
+
+        user_type = get_all_userType()
+        self.all_component['examine_index_result']['myComboBox_userType'].clear()
+        self.all_component['examine_index_result']['myComboBox_userType'].addItems(user_type)
+        if self.all_component['examine_index_result']['myComboBox_indexType'].currentText() == '年':
+            self.all_component['examine_index_result']['myComboBox_startMonth'].hide()
+            self.all_component['examine_index_result']['myLabel_startMonth'].hide()
+            self.all_component['examine_index_result']['myComboBox_endMonth'].hide()
+            self.all_component['examine_index_result']['myLabel_endMonth'].hide()
+
+
+
 

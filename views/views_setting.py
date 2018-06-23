@@ -7,4 +7,6 @@ view_setting = {
     "DialogWidth": 700,
     "ComboBoxWidth": 100,
     "ComboBoxHeight": 30,
+    "TableWidth": 250,
+    "TableHeight": 400,
 }

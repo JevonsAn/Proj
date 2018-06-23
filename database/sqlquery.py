@@ -256,3 +256,53 @@ def delete_user_data(user_data_id):
     mysql_server.exe(sql, (user_data_id, ))
     mysql_server.commit()
     mysql_server.closeSQL()
+
+
+def get_index_of_user_in_times(user_id, index_type, start_year, start_month, end_year, end_month):
+    mysql_server = Mysql()
+    index_list = []
+    if index_type == '年':
+        for i in range(start_year, end_year + 1):
+            index_list.append([str(i), '0'])
+        sql = 'SELECT year, sum(gasNum / userNum) FROM userdata ' \
+              'WHERE user_id = %s and year >= %s and year <= %s GROUP BY year ORDER BY year '
+        mysql_server.exe(sql, (user_id, start_year, end_year))
+    else:
+        for i in range(start_year * 12 + start_month, end_year * 12 + end_month + 1):
+            index_list.append([str(i // 12) + '/' + str((i - 1) % 12 + 1), '0'])
+        sql = 'SELECT year, month, sum(gasNum / userNum) FROM userdata ' \
+              'WHERE user_id = %s and (year, month) >= (%s, %s) and (year, month) <= (%s, %s) ' \
+              'GROUP BY year, month order by year, month'
+        mysql_server.exe(sql, (user_id, start_year, start_month, end_year, end_month))
+    for row in mysql_server.results():
+        if index_type == '年':
+            index_list[row[0] - start_year][1] = '{:.2f}'.format(row[1])
+        else:
+            index_list[(row[0] * 12 + row[1]) - (start_year * 12 + start_month)][1] = '{:.2f}'.format(row[2])
+    return index_list
+
+
+def get_weather_in_times(index_type, start_year, start_month, end_year, end_month):
+    mysql_server = Mysql()
+    weather_list = []
+    if index_type == '年':
+        for i in range(start_year, end_year + 1):
+            weather_list.append([str(i)])
+        sql = 'SELECT YEAR(date), AVG(max), AVG(min), AVG(ord) FROM weather ' \
+              'WHERE YEAR(date) >= %s and YEAR(date) <= %s GROUP BY YEAR(date) ORDER BY YEAR(date)'
+        mysql_server.exe(sql, (start_year, end_year))
+    else:
+        for i in range(start_year * 12 + start_month, end_year * 12 + end_month + 1):
+            weather_list.append([str(i // 12) + '/' + str((i - 1) % 12 + 1)])
+        sql = 'SELECT YEAR(date), MONTH(date), AVG(max), AVG(min), AVG(ord) FROM weather ' \
+              'WHERE (YEAR(date), MONTH(date)) >= (%s, %s) and (YEAR(date), MONTH(date)) <= (%s, %s) ' \
+              'GROUP BY YEAR(date), MONTH(date) order by YEAR(date), MONTH(date)'
+        mysql_server.exe(sql, (start_year, start_month, end_year, end_month))
+    for row in mysql_server.results():
+        if index_type == '年':
+            weather_list[row[0] - start_year].extend([row[1], row[2], row[3]])
+        else:
+            weather_list[(row[0] * 12 + row[1]) - (start_year * 12 + start_month)].extend([row[2], row[3], row[4]])
+    return weather_list
+
+
