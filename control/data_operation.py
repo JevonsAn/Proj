@@ -19,8 +19,8 @@ def datetime_to_timestamp(datetime, format):
     """
     return int(time.mktime(time.strptime(datetime, format)))
 
-def add_user_data(userId, timeType, gasNum, userNum, year, month, day, hour):
-    insert_user_data(userId, timeType, gasNum, userNum, year, month, day, hour)
+def add_user_data(userId, gasNum, userNum, year, month, day, hour):
+    insert_user_data(userId, gasNum, userNum, year, month, day, hour)
 
 
 def check_admin_password(username, password):
