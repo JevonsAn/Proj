@@ -3,7 +3,7 @@ import datetime
 from PyQt4 import QtGui, QtCore
 from views.views_setting import view_setting
 from control.data_operation import check_admin_password, get_user_date_from_database, \
-    get_user_data_by_date_from_database, update_user_data_from_database, \
+    get_user_data_by_date_from_database, update_user_data_from_database
 from control.data_operation import add_weather, datetime_to_timestamp, add_user_data, check_admin_password, \
     get_user_date_from_database, get_user_data_by_date_from_database, update_user_data_from_database, \
     delete_user_data_from_database
@@ -544,6 +544,7 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 file_path = QtGui.QFileDialog.getSaveFileName(self, 'save file', "用气指标",
                                                               "excel files (*.xls);;all files(*.*)")
+                # 正在导出的提示
                 res = export_gasIndex(timeType, start_time, stop_time, file_path)
                 if res[0]:
                     QtGui.QMessageBox.information(pr, "数据导出成功", "数据导出成功！", "确认")
@@ -738,6 +739,63 @@ class MainWindow(QtGui.QMainWindow):
 
         for x in dataExport_uneven_component_dict:
             dataExport_uneven_component_dict[x].hide()
+
+        pr = self
+
+        def dataExportButtonSlot():
+            timeType = myComboBox_indexType.currentText()
+
+            def getTime(timeType):
+                if timeType == "年":
+                    start_time = myComboBox_startTime_year.currentText()
+                    stop_time = myComboBox_stopTime_year.currentText()
+                    now_time = "%4d" % (datetime.datetime.now().year)
+                elif timeType == "月":
+                    start_time = myComboBox_startTime_year.currentText() + "%2d" % (
+                        int(myComboBox_startTime_month.currentText()))
+                    stop_time = myComboBox_stopTime_year.currentText() + "%2d" % (
+                        int(myComboBox_stopTime_month.currentText()))
+                    now_time = "%4d%2d" % (datetime.datetime.now().year, datetime.datetime.now().month)
+                elif timeType == "日":
+                    start_time = "%s%2d%2d" % (
+                    myComboBox_startTime_year.currentText(), int(myComboBox_startTime_month.currentText()),
+                    int(myComboBox_startTime_day.currentText()))
+                    stop_time = "%s%2d%2d" % (
+                    myComboBox_stopTime_year.currentText(), int(myComboBox_stopTime_month.currentText()),
+                    int(myComboBox_stopTime_day.currentText()))
+                    now_time = "%4d%2d%2d" % (
+                    datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day)
+                elif timeType == "小时":
+                    start_time = "%s%2d%2d%2d" % (
+                    myComboBox_startTime_year.currentText(), int(myComboBox_startTime_month.currentText()),
+                    int(myComboBox_startTime_day.currentText()), int(myComboBox_startTime_hour.currentText()))
+                    stop_time = "%s%2d%2d%2d" % (
+                    myComboBox_stopTime_year.currentText(), int(myComboBox_stopTime_month.currentText()),
+                    int(myComboBox_stopTime_day.currentText()), int(myComboBox_stopTime_hour.currentText()))
+                    now_time = "%4d%2d%2d%2d" % (
+                    datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day,
+                    datetime.datetime.now().hour)
+                else:
+                    raise RuntimeError("不存在的指标类型")
+
+                return start_time, stop_time, now_time
+
+            start_time, stop_time, now_time = getTime(timeType)
+
+            if start_time > stop_time:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
+            elif start_time > now_time or stop_time > now_time:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "不能选择未来的时间", "确认")
+            else:
+                file_path = QtGui.QFileDialog.getSaveFileName(pr, 'save file', "用气指标",
+                                                              "excel files (*.xls);;all files(*.*)")
+                res = export_gasIndex(timeType, start_time, stop_time, file_path)
+                if res[0]:
+                    QtGui.QMessageBox.information(pr, "数据导出成功", "数据导出成功！", "确认")
+                else:
+                    QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
+
+        self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
 
     def selectionchange(self):
         sender = self.sender()
@@ -1666,6 +1724,7 @@ class MainWindow(QtGui.QMainWindow):
         search_gas_index_component_dict['myLabel_indexTitle'] = myLabel_indexTitle
 
         myLabel_index = MyLabel('', self)
+        myLabel_index.resize(500, 30)
         myLabel_index.move(600, 150)
         search_gas_index_component_dict['myLabel_index'] = myLabel_index
 
