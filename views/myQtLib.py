@@ -874,7 +874,9 @@ class MainWindow(QtGui.QMainWindow):
             elif start_time > now_time or stop_time > now_time:
                 QtGui.QMessageBox.warning(pr, "日期选择有误", "不能选择未来的时间", "确认")
             else:
-                file_path = QtGui.QFileDialog.getSaveFileName(pr, 'save file', "用气指标",
+                user = get_user_by_id(pr.nowUserId)
+                file_path = QtGui.QFileDialog.getSaveFileName(pr, 'save file', "%s-%s用户%s不均匀系数" % (
+                user["userType"], user["userName"], timeType),
                                                               "excel files (*.xls);;all files(*.*)")
                 res = export_uneven(pr.nowUserId, timeType, start_time, stop_time, file_path)
                 if res[0]:
@@ -1141,12 +1143,14 @@ class MainWindow(QtGui.QMainWindow):
                 QtGui.QMessageBox.warning(pr, "日期选择有误", "不能选择未来的时间", "确认")
             else:
                 res = search_uneven(pr.nowUserId, timeType, start_time)
-                # print(res)
-                userType = myComboBox_userType.currentText()
-                userName = myComboBox_userName.currentText()
-                # print((userType, userName, start_time, timeType, res))
-                myLabel_index.setText("%s-%s用户的%s不均匀系数为%s" % (userType, userName, timeType, res))
+                if res[0]:
 
+                    userType = myComboBox_userType.currentText()
+                    userName = myComboBox_userName.currentText()
+                    # print((userType, userName, start_time, timeType, res))
+                    myLabel_index.setText("%s-%s用户的%s不均匀系数为%s" % (userType, userName, timeType, res[1]))
+                else:
+                    QtGui.QMessageBox.warning(pr, "查询失败", res[1], "确认")
         self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
 
     def selectionchange(self):

@@ -1,3 +1,4 @@
+import datetime
 from database.sqlconnection import Mysql
 from pymysql import IntegrityError
 
@@ -160,71 +161,79 @@ def get_gas_index(user_id, index_type, year, month):
     return results
 
 
-def get_avg_gas(user_id, time_type, search_time):
-    mysql_server = Mysql()
+def get_avg_gas(user_id, time_type, search_time, results=None):
+    year = 2000
+    month = 0
+    day = 0
+    hour = 0
+    dayfrom = None
+    dayto = None
+
     if time_type == "年":
         year = int(search_time[:4])
         sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.user_id = %s and u.year = %s'
-        mysql_server.exe(sql, (user_id, year))
+        params = (user_id, year)
         # print(sql % (user_id, year))
 
     elif time_type == "月":
         year = int(search_time[:4])
         month = int(search_time[4:6])
         sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.user_id = %s and (u.year, u.month) = (%s, %s)'
-        mysql_server.exe(sql, (user_id, year, month))
+        params = (user_id, year, month)
 
     elif time_type == "日":
         year = int(search_time[:4])
         month = int(search_time[4:6])
         day = int(search_time[6:8])
         sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.user_id = %s and (u.year, u.month, u.day) = (%s, %s, %s)'
-        mysql_server.exe(sql, (user_id, year, month, day))
+        params = (user_id, year, month, day)
 
     elif time_type == "周":
-        import datetime
-        vdate = datetime.datetime.strptime(search_time, '%Y%m%d').date()
+        vdate = datetime.datetime.strptime(search_time.replace(" ", "0"), '%Y%m%d').date()
         dayscount = datetime.timedelta(days=vdate.isoweekday())
         dayfrom = vdate - dayscount + datetime.timedelta(days=1)
         dayto = vdate - dayscount + datetime.timedelta(days=7)
         sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.user_id = %s and (u.year, u.month, u.day) >= (%s, %s, %s) and (u.year, u.month, u.day) <= (%s, %s, %s)'
-        mysql_server.exe(sql, (user_id, dayfrom.year, dayfrom.month, dayfrom.day,
-                               dayto.year, dayto.month, dayto.day))
+        params = (user_id, dayfrom.year, dayfrom.month, dayfrom.day, dayto.year, dayto.month, dayto.day)
+
     elif time_type == "小时":
         year = int(search_time[:4])
         month = int(search_time[4:6])
         day = int(search_time[6:8])
         hour = int(search_time[8:10])
         sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.user_id = %s and (u.year, u.month, u.day, u.hour) = (%s, %s, %s, %s)'
-        mysql_server.exe(sql, (user_id, year, month, day, hour))
+        params = (user_id, year, month, day, hour)
 
-    results = {}
-    for row in mysql_server.results():
-        if row[0] in results:
-            if row[1] in results[row[0]]:
-                if row[2] in results[row[0]][row[1]]:
-                    if row[3] in results[row[0]][row[1]][row[2]]:
-                        pass
+    if not results:
+        mysql_server = Mysql()
+        mysql_server.exe(sql, params)
+        results = {}
+        for row in mysql_server.results():
+            if row[0] in results:
+                if row[1] in results[row[0]]:
+                    if row[2] in results[row[0]][row[1]]:
+                        if row[3] in results[row[0]][row[1]][row[2]]:
+                            pass
+                        else:
+                            results[row[0]][row[1]][row[2]][row[3]] = row[4]
                     else:
-                        results[row[0]][row[1]][row[2]][row[3]] = row[4]
+                        results[row[0]][row[1]][row[2]] = {row[3]:
+                                                               row[4]
+                                                           }
                 else:
-                    results[row[0]][row[1]][row[2]] = {row[3]:
-                                                           row[4]
-                                                       }
+                    results[row[0]][row[1]] = {row[2]:
+                                                   {row[3]:
+                                                        row[4]
+                                                    }
+                                               }
             else:
-                results[row[0]][row[1]] = {row[2]:
-                                               {row[3]:
-                                                    row[4]
-                                                }
-                                           }
-        else:
-            results[row[0]] = {row[1]:
-                                   {row[2]:
-                                        {row[3]:
-                                             row[4]
-                                         }
-                                    }
-                               }
+                results[row[0]] = {row[1]:
+                                       {row[2]:
+                                            {row[3]:
+                                                 row[4]
+                                             }
+                                        }
+                                   }
 
     time_gas = results
     if time_type == "年":
@@ -267,11 +276,11 @@ def get_avg_gas(user_id, time_type, search_time):
         for d in range(7):
             day = dayfrom + datetime.timedelta(days=d)
             day_list.append("%4d%2d%2d" % (day.year, day.month, day.day))
-        print(day_list)
+        # print(day_list)
 
         all_gas = 0
         for d in day_list:
-            all_gas += get_gas_by_alltime(time_type, time_gas, search_time)
+            all_gas += get_gas_by_alltime("日", time_gas, d)
         avg_gas = all_gas / 7
         return avg_gas
 
@@ -279,67 +288,76 @@ def get_avg_gas(user_id, time_type, search_time):
         return get_gas_by_alltime(time_type, time_gas, search_time)
 
 
-# def get_avg_gas(user_id, time_type, start_time, stop_time):
-#     mysql_server = Mysql()
-#     if time_type == "年":
-#         start_year = int(start_time[:4])
-#         stop_year = int(stop_time[:4])
-#         sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.id = %s and u.year >= %s and u.year <= %s'
-#         mysql_server.exe(sql, (user_id, start_year, stop_year))
-#
-#     elif time_type == "月":
-#         start_year = int(start_time[:4])
-#         stop_year = int(stop_time[:4])
-#         start_month = int(start_time[4:6])
-#         stop_month = int(stop_time[4:6])
-#         sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.id = %s and (u.year, u.month) >= (%s, %s) and (u.year, u.month) <= (%s, %s)'
-#         mysql_server.exe(sql, (user_id, start_year, start_month, stop_year, stop_month))
-#
-#     results = {}
-#     for row in mysql_server.results():
-#         if row[0] in results:
-#             if row[1] in results[row[0]]:
-#                 if row[2] in results[row[0]][row[1]]:
-#                     if row[3] in results[row[0]][row[1]][row[2]]:
-#                         pass
-#                     else:
-#                         results[row[0]][row[1]][row[2]][row[3]] = row[4]
-#                 else:
-#                     results[row[0]][row[1]][row[2]] = {row[3]:
-#                                                            row[4]
-#                                                        }
-#             else:
-#                 results[row[0]][row[1]] = {row[2]:
-#                                                {row[3]:
-#                                                     row[4]
-#                                                 }
-#                                            }
-#         else:
-#             results[row[0]] = {row[1]:
-#                                    {row[2]:
-#                                         {row[3]:
-#                                              row[4]
-#                                          }
-#                                     }
-#                                }
-#
-#     if time_type == "年":
-#         year_gas = {}
-#         time_gas = results
-#         for year in range(start_year, stop_year + 1):
-#             year_gas[year] = get_gas_by_alltime("年", str(year))
-#
-#         avg_year_gas = {}
-#         for current_year in year_gas:
-#             days = 365
-#             if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
-#                 days += 1
-#             avg_year_gas[current_year] = year_gas[current_year] / days
-#     elif time_type == "月":
-#         # month_gas =
-#         pass
+def get_many_avg_gas(user_id, time_type, start_time, stop_time):
+    mysql_server = Mysql()
+    if time_type == "年":
+        start_year = int(start_time[:4])
+        stop_year = int(stop_time[:4])
+        sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.id = %s and u.year >= %s and u.year <= %s'
+        mysql_server.exe(sql, (user_id, start_year, stop_year))
 
+    elif time_type == "月":
+        start_year = int(start_time[:4])
+        stop_year = int(stop_time[:4])
+        start_month = int(start_time[4:6])
+        stop_month = int(stop_time[4:6])
+        sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.id = %s and (u.year, u.month) >= (%s, %s) and (u.year, u.month) <= (%s, %s)'
+        mysql_server.exe(sql, (user_id, start_year, start_month, stop_year, stop_month))
 
+    elif time_type == "日" or time_type == "周":
+        start_year = int(start_time[:4])
+        start_month = int(start_time[4:6])
+        start_day = int(start_time[6:8])
+        stop_year = int(stop_time[:4])
+        stop_month = int(stop_time[4:6])
+        stop_day = int(stop_time[6:8])
+        sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.user_id = %s and (u.year, u.month, u.day) >= (%s, %s, %s) and (u.year, u.month, u.day) <= (%s, %s, %s)'
+        mysql_server.exe(sql, (user_id, start_year, start_month, start_day, stop_year, stop_month, stop_day))
+
+    elif time_type == "小时":
+        start_year = int(start_time[:4])
+        start_month = int(start_time[4:6])
+        start_day = int(start_time[6:8])
+        start_hour = int(start_time[8:10])
+        stop_year = int(stop_time[:4])
+        stop_month = int(stop_time[4:6])
+        stop_day = int(stop_time[6:8])
+        stop_hour = int(stop_time[8:10])
+        sql = 'SELECT u.year, u.month, u.day, u.hour, u.gasNum From userdata u where u.user_id = %s and (u.year, u.month, u.day, u.hour) >= (%s, %s, %s, %s) and (u.year, u.month, u.day, u.hour) <= (%s, %s, %s, %s)'
+        mysql_server.exe(sql, (
+        user_id, start_year, start_month, start_day, start_hour, stop_year, stop_month, stop_day, stop_hour))
+    else:
+        return
+
+    results = {}
+    for row in mysql_server.results():
+        if row[0] in results:
+            if row[1] in results[row[0]]:
+                if row[2] in results[row[0]][row[1]]:
+                    if row[3] in results[row[0]][row[1]][row[2]]:
+                        pass
+                    else:
+                        results[row[0]][row[1]][row[2]][row[3]] = row[4]
+                else:
+                    results[row[0]][row[1]][row[2]] = {row[3]:
+                                                           row[4]
+                                                       }
+            else:
+                results[row[0]][row[1]] = {row[2]:
+                                               {row[3]:
+                                                    row[4]
+                                                }
+                                           }
+        else:
+            results[row[0]] = {row[1]:
+                                   {row[2]:
+                                        {row[3]:
+                                             row[4]
+                                         }
+                                    }
+                               }
+
+    return results
 
 def get_all_user_info():
     mysqlserver = Mysql()
