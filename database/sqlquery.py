@@ -265,22 +265,22 @@ def get_index_of_user_in_times(user_id, index_type, start_year, start_month, end
     index_list = []
     if index_type == '年':
         for i in range(start_year, end_year + 1):
-            index_list.append([str(i), '0'])
+            index_list.append([str(i), 0])
         sql = 'SELECT year, sum(gasNum / userNum) FROM userdata ' \
               'WHERE user_id = %s and year >= %s and year <= %s GROUP BY year ORDER BY year '
         mysql_server.exe(sql, (user_id, start_year, end_year))
     else:
         for i in range(start_year * 12 + start_month, end_year * 12 + end_month + 1):
-            index_list.append([str(i // 12) + '/' + str((i - 1) % 12 + 1), '0'])
+            index_list.append([str(i // 12) + '/' + str((i - 1) % 12 + 1), 0])
         sql = 'SELECT year, month, sum(gasNum / userNum) FROM userdata ' \
               'WHERE user_id = %s and (year, month) >= (%s, %s) and (year, month) <= (%s, %s) ' \
               'GROUP BY year, month order by year, month'
         mysql_server.exe(sql, (user_id, start_year, start_month, end_year, end_month))
     for row in mysql_server.results():
         if index_type == '年':
-            index_list[row[0] - start_year][1] = '{:.2f}'.format(row[1])
+            index_list[row[0] - start_year][1] = float('{:.2f}'.format(row[1]))
         else:
-            index_list[(row[0] * 12 + row[1]) - (start_year * 12 + start_month)][1] = '{:.2f}'.format(row[2])
+            index_list[(row[0] * 12 + row[1]) - (start_year * 12 + start_month)][1] = float('{:.2f}'.format(row[2]))
     return index_list
 
 

@@ -1,5 +1,5 @@
 import sys
-from PyQt4 import QtGui
+from pyqtgraph import QtGui
 from views.myQtLib import MainWindow
 
 

@@ -9,4 +9,6 @@ view_setting = {
     "ComboBoxHeight": 30,
     "TableWidth": 250,
     "TableHeight": 400,
+    "PlotWidth": 450,
+    "PlotHeight": 400
 }
