@@ -4,6 +4,8 @@ import datetime
 from PyQt4 import QtGui, QtCore
 from pymysql import IntegrityError
 
+import pyqtgraph as pg
+from pyqtgraph import QtGui, QtCore
 from views.views_setting import view_setting
 
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
@@ -19,6 +21,11 @@ from control.gas_index_opeartion import get_gas_index_from_database, get_index_o
 from control.gas_index_opeartion import get_weather_in_times_from_database
 
 from control.uneven_operation import search_uneven, get_uneven_list
+from control.data_operation import export_gasIndex
+from pymysql import IntegrityError
+from control.gas_index_opeartion import get_gas_index_from_database, get_index_of_user_in_times_from_database, \
+    get_weather_in_times_from_database
+from copy import deepcopy
 
 month_dict = {'大月': ['', '1', '3', '5', '7', '8', '10', '12'], '小月': ['', '4', '6', '9', '11']}
 day_dict = {'小月': [''] + [str(x) for x in range(1, 31)], '大月': [''] + [str(x) for x in range(1, 32)],
@@ -143,64 +150,55 @@ class MyPainter(QtGui.QPainter):
     def setLeftBottom(self, x, y):
         self.leftBottom = (x, y)
 
-    def drawLine(self, x1, y1, x2, y2):
-        super().drawLine(self.leftBottom[0] + x1, self.leftBottom[1] - y1,
-                   self.leftBottom[0] + x2, self.leftBottom[1] - y2)
+    def drawLine(self, *__args):
+        super().drawLine(self.leftBottom[0] + __args[0], self.leftBottom[1] - __args[1],
+                   self.leftBottom[0] + __args[2], self.leftBottom[1] - __args[3])
+
+    def drawText(self, *__args):
+        super().drawText(self.leftBottom[0] + __args[0], self.leftBottom[1] - __args[1], __args[2])
 
 
-class MyPaintDialog(QtGui.QDialog):
-    def __init__(self, parent, leftBottom):
-        super().__init__(parent)
-        self.setPalette(QtGui.QPalette(QtCore.Qt.white))
-        self.setAutoFillBackground(True)
-        self.pen = QtGui.QPen()
-        self.brush = QtGui.QBrush()
-        self.indexData = None
-        self.weatherData = None
-        width = view_setting['DialogWidth']
-        height = view_setting['DialogHeight']
-        self.resize(width, height)
-        self.leftBottom = leftBottom
-        self.canvasWidth = width
-        self.canvasHeight = height
+class MyPlot(pg.PlotWidget):
+    def __init__(self, parent, index_data, index_unit, weather_data, title=''):
+        x_dict = {x: index_data[x][0] for x in range(len(index_data))}
+        axis = [(x, index_data[x][0]) for x in range(0, len(index_data), 5)]
+        string_x_unit = pg.AxisItem(orientation='bottom')
+        string_x_unit.setTicks([axis, x_dict.items()])
+        vb = pg.ViewBox()
+        pg.PlotWidget.__init__(self, parent, axisItems={'bottom': string_x_unit}, title=title, viewBox=vb)
+        self.resize(view_setting['PlotWidth'], view_setting['PlotHeight'])
+        p = self.plot()
+        label = pg.TextItem()
+        self.addItem(label)
+        self.addLegend(size=(80, 80))
+        self.showGrid(x=True, y=True, alpha=0.5)
+        self.plot(x=list(x_dict.keys()), y=[row[1] for row in index_data], pen='r', name='指标', symbolBrush=(255, 0, 0))
+        weather_plot = self.plot(x=list(x_dict.keys()), y=[row[3] for row in weather_data], pen='b', name='气温', symbolBrush=(0, 0, 255))
+        self.setLabel(axis='left', text='指标')
+        self.setLabel(axis='bottom', text='日期')
+        self.setBackground(None)
+        vLine = pg.InfiniteLine(angle=90, movable=False, )
+        hLine = pg.InfiniteLine(angle=0, movable=False, )
+        self.addItem(vLine, ignoreBounds=True)
+        self.addItem(hLine, ignoreBounds=True)
 
-    def setIndexData(self, indexData):
-        self.indexData = indexData
-
-    def setWeatherData(self, weatherData):
-        self.weatherData = weatherData
-
-    def setPen(self, p):
-        self.pen = p
-        self.update()
-
-    def setBrush(self, b):
-        self.brush = b
-        self.update()
-
-    def myDrawLine(self, p, startPointX, startPointY, endPointX, endPointY):
-        p.drawLine(self.leftBottom[0] + startPointX, self.leftBottom[1] - startPointY,
-                   self.leftBottom[0] + endPointX, self.leftBottom[1] - endPointY)
-
-    def setCanvasSize(self, width, height):
-        self.canvasWidth = width
-        self.canvasHeight = height
-
-    def paintEvent(self, QPaintEvent):
-        p = MyPainter(self)
-        p.setPen(self.pen)
-        p.setBrush(self.brush)
-        p.setLeftBottom(self.leftBottom[0], self.leftBottom[1])
-        if self.indexData is not None:
-            self.paintIndex()
-        if self.weatherData is not None:
-            self.paintWeather()
-
-    def paintIndex(self):
-        pass
-
-    def paintWeather(self):
-        pass
+        def mouseMoved(evt):
+            pos = evt[0]  ## using signal proxy turns original arguments into a tuple
+            if self.sceneBoundingRect().contains(pos):
+                mousePoint = vb.mapSceneToView(pos)
+                index = int(mousePoint.x())
+                pos_y = int(mousePoint.y())
+                print(index)
+                if 0 <= index < len(index_data):
+                    label.setHtml(
+                        "<p style='color:black'>日期：{0}</p>"
+                        "<p style='color:black'>指标：{1}{2}</p>"
+                        "<p style='color:black'>气温：{3}℃</p>".format(
+                            x_dict[index], index_data[index][1], index_unit, weather_data[index][3]))
+                    label.setPos(mousePoint.x(), mousePoint.y())
+                vLine.setPos(mousePoint.x())
+                hLine.setPos(mousePoint.y())
+        self.proxy = pg.SignalProxy(self.scene().sigMouseMoved, rateLimit=30, slot=mouseMoved)
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -2849,6 +2847,7 @@ class MainWindow(QtGui.QMainWindow):
             weather_list = get_weather_in_times_from_database(myComboBox_indexType.currentText(), start_year,
                                                               start_month, end_year, end_month)
             self.examine_index_result_slot(index_list, weather_list)
+
         myComboBox_indexType.currentIndexChanged.connect(on_indexType_change)
         myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
         myComboBox_userName.currentIndexChanged.connect(self.selectUser)
@@ -2861,16 +2860,17 @@ class MainWindow(QtGui.QMainWindow):
             i.hide()
 
     def examine_index_result_slot(self, index_list, weather_list):
-        d = MyPaintDialog(self, (300, 400))
+        d = MyDialog(self)
         user_content = get_user_by_id(self.nowUserId)
-        unit = user_content['gasUnit'] + '/' + user_content['userUnit']
-        temp_index_list = index_list[:]
+        unit = user_content['gasUnit'] + '/' + user_content['userUnit'] + '·' + \
+               self.all_component['examine_index_result']['myComboBox_indexType'].currentText()
+        temp_index_list = deepcopy(index_list)
         for row in temp_index_list:
-            row[1] = row[1] + ' ' + unit
+            row[1] = str(row[1]) + ' ' + unit
         myTable_index = MyTable(d, temp_index_list, ['日期', '用气指标'])
         myTable_index.move(0, 0)
-
-        # d.setIndexData(index_list)
+        myPlot_index = MyPlot(d, index_list, unit, weather_list, '指标折线图')
+        myPlot_index.move(250, 0)
         d.setWindowTitle("结果查看")
         d.setWindowModality(QtCore.Qt.ApplicationModal)
         d.exec_()
