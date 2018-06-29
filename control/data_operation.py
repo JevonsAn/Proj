@@ -234,3 +234,4 @@ def export_uneven(user_id, timeType, start_time, stop_time, file_path):
         # print(e)
         # res[1] = str(e)
     return res
+

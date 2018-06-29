@@ -1,4 +1,5 @@
-from database.sqlquery import get_avg_gas
+import datetime
+from database.sqlquery import get_avg_gas, get_many_avg_gas
 
 
 def search_uneven(user_id, timeType, search_time, time_gas=None):
@@ -38,4 +39,90 @@ def search_uneven(user_id, timeType, search_time, time_gas=None):
 
         # return day_avg, hour, uneven
     res = [True, uneven]
+    return res
+
+
+def get_uneven_list(user_id, timeType, start_time, stop_time):
+    def timeChange(timeType, t):
+        if timeType == "月":
+            year = int(t[:4])
+            month = int(t[4:6])
+            return "%d-%d" % (year, month)
+        elif timeType == "小时":
+            year = int(t[:4])
+            month = int(t[4:6])
+            day = int(t[6:8])
+            hour = int(t[8:10])
+            return "%d-%d-%d : %d时" % (year, month, day, hour)
+        elif timeType == "周":
+            year = int(t[:4])
+            month = int(t[4:6])
+            day = int(t[6:8])
+            return "%d-%d-%d" % (year, month, day)
+        elif timeType == "日":
+            year = int(t[:4])
+            month = int(t[4:6])
+            day = int(t[6:8])
+            return "%d-%d-%d" % (year, month, day)
+
+    res = [True, ""]
+    try:
+        time_gas = get_many_avg_gas(user_id, timeType, start_time, stop_time)
+
+        all_time = {}
+        if timeType == "月":
+            all_time[timeType] = ["%4d%2d" % (int(start_time[:4]), m) for m in range(int(start_time[4:6]), 13)] \
+                                 + ["%4d%2d" % (x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4])) for m
+                                    in range(1, 13)] \
+                                 + ["%4d%2d" % (int(stop_time[:4]), m) for m in range(1, int(stop_time[4:6]) + 1)]
+        elif timeType == "日":
+            dayfrom = datetime.datetime.strptime(start_time[:8].replace(" ", "0"), '%Y%m%d').date()
+            dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
+            dayscount = (dayto - dayfrom).days
+            all_time[timeType] = []
+            for i in range(dayscount):
+                d = dayfrom + datetime.timedelta(days=i)
+                all_time[timeType].append("%4d%2d%2d" % (d.year, d.month, d.day))
+
+        elif timeType == "周":
+            dayfrom = datetime.datetime.strptime(start_time[:8].replace(" ", "0"), '%Y%m%d').date()
+            dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
+            dayscount = (dayto - dayfrom).days
+            all_time[timeType] = []
+            for i in range(dayscount):
+                d = dayfrom + datetime.timedelta(days=i)
+                all_time[timeType].append("%4d%2d%2d" % (d.year, d.month, d.day))
+
+        elif timeType == "小时":
+            dayfrom = datetime.datetime.strptime(start_time[:8].replace(" ", "0"), '%Y%m%d').date()
+            dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
+            dayscount = (dayto - dayfrom).days
+            all_time[timeType] = []
+            for i in range(dayscount):
+                d = dayfrom + datetime.timedelta(days=i)
+                for h in range(1, 23):
+                    all_time[timeType].append("%4d%2d%2d%2d" % (d.year, d.month, d.day, h))
+
+        uneven_list = []
+
+        for t in all_time[timeType]:
+            lt = []
+            # lt.append(user["userType"])
+            # lt.append(user["userName"])
+            lt.append(timeChange(timeType, t))
+            lres = search_uneven(user_id, timeType, t, time_gas)
+            if lres[0] is False or lres[1] == 0:
+                continue
+            else:
+                lt.append(lres[1])
+            uneven_list.append(lt)
+        res[1] = uneven_list
+    except PermissionError as e:
+        res[0] = False
+        res[1] = str("没有写入文件的权限，可能是文件未关闭导致")
+    except Exception as e:
+        raise e
+        # res[0] = False
+        # print(e)
+        # res[1] = str(e)
     return res

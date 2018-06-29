@@ -18,7 +18,7 @@ from control.data_operation import export_gasIndex, export_uneven
 from control.gas_index_opeartion import get_gas_index_from_database, get_index_of_user_in_times_from_database
 from control.gas_index_opeartion import get_weather_in_times_from_database
 
-from control.uneven_operation import search_uneven
+from control.uneven_operation import search_uneven, get_uneven_list
 
 month_dict = {'大月': ['', '1', '3', '5', '7', '8', '10', '12'], '小月': ['', '4', '6', '9', '11']}
 day_dict = {'小月': [''] + [str(x) for x in range(1, 31)], '大月': [''] + [str(x) for x in range(1, 32)],
@@ -294,11 +294,29 @@ class MainWindow(QtGui.QMainWindow):
         self.connect(examine_index_result, QtCore.SIGNAL('triggered()'), self.display_examine_index_result)
         yongqi_menu.addAction(examine_index_result)
 
+        human_predict = QtGui.QAction('发展规模干预预测', self)
+        human_predict.setStatusTip('发展规模干预预测')
+        self.human_predict_fuc()
+        self.connect(human_predict, QtCore.SIGNAL('triggered()'), self.display_human_predict)
+        yongqi_menu.addAction(human_predict)
+
+        model_predict = QtGui.QAction('发展规模模型预测', self)
+        model_predict.setStatusTip('发展规模模型预测')
+        self.model_predict_fuc()
+        self.connect(model_predict, QtCore.SIGNAL('triggered()'), self.display_model_predict)
+        yongqi_menu.addAction(model_predict)
+
         uneven_search = QtGui.QAction('不均匀系数查询', self)
         uneven_search.setStatusTip('不均匀系数查询')
         self.uneven_search_fuc()
         self.connect(uneven_search, QtCore.SIGNAL('triggered()'), self.display_uneven_search)
         xishu_menu.addAction(uneven_search)
+
+        uneven_watch = QtGui.QAction('结果查看', self)
+        uneven_watch.setStatusTip('不均匀系数结果查看')
+        self.uneven_watch_fuc()
+        self.connect(uneven_watch, QtCore.SIGNAL('triggered()'), self.display_uneven_watch)
+        xishu_menu.addAction(uneven_watch)
 
     def create_user_fuc(self):
         create_user_component_dict = {}
@@ -868,7 +886,7 @@ class MainWindow(QtGui.QMainWindow):
                 return start_time, stop_time, now_time
 
             start_time, stop_time, now_time = getTime(timeType)
-            print(start_time, stop_time, now_time)
+            # print(start_time, stop_time, now_time)
             if start_time > stop_time:
                 QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
             elif start_time > now_time or stop_time > now_time:
@@ -885,6 +903,335 @@ class MainWindow(QtGui.QMainWindow):
                     QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
 
         self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
+
+    def uneven_watch_fuc(self):
+        uneven_watch_component_dict = {}
+        myLabel_indexType = MyLabel("系数类型 : ", self)
+        myLabel_indexType.move(100, 60)
+        uneven_watch_component_dict["myLabel_indexType"] = myLabel_indexType
+
+        myComboBox_indexType = MyComboBox(["月", "周", "日", "小时"], self)
+        myComboBox_indexType.move(200, 60)
+        uneven_watch_component_dict["myComboBox_indexType"] = myComboBox_indexType
+
+        myLabel_userType = MyLabel("用户类型 : ", self)
+        myLabel_userType.move(100, 120)
+        uneven_watch_component_dict["myLabel_userType"] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 120)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        uneven_watch_component_dict["myComboBox_userType"] = myComboBox_userType
+
+        myLabel_userName = MyLabel("用户名称 : ", self)
+        myLabel_userName.move(100, 180)
+        uneven_watch_component_dict["myLabel_userName"] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 180)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        uneven_watch_component_dict["myComboBox_userName"] = myComboBox_userName
+
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        myLabel_startTime = MyLabel("开始日期 : ", self)
+        myLabel_startTime.move(100, 240)
+        uneven_watch_component_dict["myLabel_startTime"] = myLabel_startTime
+
+        myComboBox_startTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_startTime_year.move(200, 240)
+        uneven_watch_component_dict["myComboBox_startTime_year"] = myComboBox_startTime_year
+        myLabel_year = MyLabel(" 年", self)
+        myLabel_year.move(300, 240)
+        myLabel_year.resize(50, 30)
+        uneven_watch_component_dict["myLabel_year"] = myLabel_year
+
+        myComboBox_startTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_startTime_month.move(350, 240)
+        uneven_watch_component_dict["myComboBox_startTime_month"] = myComboBox_startTime_month
+        myLabel_month = MyLabel(" 月", self)
+        myLabel_month.move(450, 240)
+        myLabel_month.resize(50, 30)
+        uneven_watch_component_dict["myLabel_month"] = myLabel_month
+
+        myComboBox_startTime_day = MyComboBox([str(s) for s in range(1, 31)], self)
+        myComboBox_startTime_day.move(500, 240)
+        uneven_watch_component_dict["myComboBox_startTime_day"] = myComboBox_startTime_day
+        myLabel_day = MyLabel(" 日", self)
+        myLabel_day.move(600, 240)
+        myLabel_day.resize(50, 30)
+        uneven_watch_component_dict["myLabel_day"] = myLabel_day
+
+        myComboBox_startTime_week = MyComboBox([], self)
+        myComboBox_startTime_week.move(500, 240)
+        uneven_watch_component_dict["myComboBox_startTime_week"] = myComboBox_startTime_week
+        myLabel_week = MyLabel(" 周", self)
+        myLabel_week.move(600, 240)
+        myLabel_week.resize(50, 30)
+        uneven_watch_component_dict["myLabel_week"] = myLabel_week
+
+        myComboBox_startTime_hour = MyComboBox([str(s) for s in range(1, 25)], self)
+        myComboBox_startTime_hour.move(650, 240)
+        uneven_watch_component_dict["myComboBox_startTime_hour"] = myComboBox_startTime_hour
+        myLabel_hour = MyLabel(" 小时", self)
+        myLabel_hour.move(750, 240)
+        myLabel_hour.resize(50, 30)
+        uneven_watch_component_dict["myLabel_hour"] = myLabel_hour
+
+        myLabel_stopTime = MyLabel("结束日期 : ", self)
+        myLabel_stopTime.move(100, 300)
+        uneven_watch_component_dict["myLabel_stopTime"] = myLabel_stopTime
+
+        myComboBox_stopTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_stopTime_year.move(200, 300)
+        uneven_watch_component_dict["myComboBox_stopTime_year"] = myComboBox_stopTime_year
+        myLabel_year2 = MyLabel(" 年", self)
+        myLabel_year2.move(300, 300)
+        myLabel_year2.resize(50, 30)
+        uneven_watch_component_dict["myLabel_year2"] = myLabel_year2
+
+        myComboBox_stopTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_stopTime_month.move(350, 300)
+        uneven_watch_component_dict["myComboBox_stopTime_month"] = myComboBox_stopTime_month
+        myLabel_month2 = MyLabel(" 月", self)
+        myLabel_month2.move(450, 300)
+        myLabel_month2.resize(50, 30)
+        uneven_watch_component_dict["myLabel_month2"] = myLabel_month2
+
+        myComboBox_stopTime_day = MyComboBox([str(s) for s in range(1, 31)], self)
+        myComboBox_stopTime_day.move(500, 300)
+        uneven_watch_component_dict["myComboBox_stopTime_day"] = myComboBox_stopTime_day
+        myLabel_day2 = MyLabel(" 日", self)
+        myLabel_day2.move(600, 300)
+        myLabel_day2.resize(50, 30)
+        uneven_watch_component_dict["myLabel_day2"] = myLabel_day2
+
+        myComboBox_stopTime_week = MyComboBox([], self)
+        myComboBox_stopTime_week.move(500, 300)
+        uneven_watch_component_dict["myComboBox_stopTime_week"] = myComboBox_stopTime_week
+        myLabel_week2 = MyLabel(" 周", self)
+        myLabel_week2.move(600, 300)
+        myLabel_week2.resize(50, 30)
+        uneven_watch_component_dict["myLabel_week2"] = myLabel_week2
+
+        myComboBox_stopTime_hour = MyComboBox([str(s) for s in range(1, 25)], self)
+        myComboBox_stopTime_hour.move(650, 300)
+        uneven_watch_component_dict["myComboBox_stopTime_hour"] = myComboBox_stopTime_hour
+        myLabel_hour2 = MyLabel(" 小时", self)
+        myLabel_hour2.move(750, 300)
+        myLabel_hour2.resize(50, 30)
+        uneven_watch_component_dict["myLabel_hour2"] = myLabel_hour2
+
+        myButton_export = MyButton("查看", self)
+        myButton_export.move(100, 360)
+        uneven_watch_component_dict["myButton_export"] = myButton_export
+
+        month_dict = {'大月': ['1', '3', '5', '7', '8', '10', '12'], '小月': ['4', '6', '9', '11']}
+        day_dict = {'小月': [str(x) for x in range(1, 31)], '大月': [str(x) for x in range(1, 32)],
+                    '平月': [str(x) for x in range(1, 29)], '闰月': [str(x) for x in range(1, 30)]}
+
+        def on_year_change():
+            sender = self.sender()
+            if sender.count() == 0:
+                return
+
+            if sender == myComboBox_startTime_year:
+                month = myComboBox_startTime_month
+                day = myComboBox_startTime_day
+                week = myComboBox_startTime_week
+            elif sender == myComboBox_stopTime_year:
+                month = myComboBox_stopTime_month
+                day = myComboBox_stopTime_day
+                week = myComboBox_stopTime_week
+            else:
+                return
+
+            current_month = int(month.currentText())
+            current_year = int(sender.currentText())
+
+            if str(current_month) == '2':
+                day.clear()
+                if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                    day.addItems(day_dict['闰月'])
+                else:
+                    day.addItems(day_dict['平月'])
+            day_list_len = day.count()
+            week.clear()
+            mondays = []
+            for y, m, d in [(current_year, current_month, int(x)) for x in range(1, day_list_len + 1)]:
+                if datetime.datetime(y, m, d).strftime("%w") == '1':
+                    mondays.append(d)
+            weeks_list = []
+            for d in mondays:
+                sr = d
+                sp = (d + 6) % (day_list_len)
+                if sp == 0:
+                    sp = day_list_len
+                weeks_list.append("%d日~%d日" % (sr, sp))
+            week.addItems(weeks_list)
+
+        def on_month_change():
+            sender = self.sender()
+            if sender.count() == 0:
+                return
+
+            if sender == myComboBox_startTime_month:
+                year = myComboBox_startTime_year
+                day = myComboBox_startTime_day
+                week = myComboBox_startTime_week
+            elif sender == myComboBox_stopTime_month:
+                year = myComboBox_stopTime_year
+                day = myComboBox_stopTime_day
+                week = myComboBox_stopTime_week
+            else:
+                return
+
+            current_month = int(sender.currentText())
+            current_year = int(year.currentText())
+
+            day.clear()
+            day_list = []
+            if current_month == 2:
+                if current_year % 400 == 0 or (current_year % 4 == 0 and current_year % 100 != 0):
+                    day_list = day_dict['闰月']
+                else:
+                    day_list = day_dict['平月']
+            elif str(current_month) in month_dict['大月']:
+                day_list = day_dict['大月']
+            elif str(current_month) in month_dict['小月']:
+                day_list = day_dict['小月']
+            day.addItems(day_list)
+
+            week.clear()
+            mondays = []
+            for y, m, d in [(current_year, current_month, int(x)) for x in day_list]:
+                if datetime.datetime(y, m, d).strftime("%w") == '1':
+                    mondays.append(d)
+            weeks_list = []
+            for d in mondays:
+                sr = d
+                sp = (d + 6) % (len(day_list))
+                if sp == 0:
+                    sp = len(day_list)
+                weeks_list.append("%d日~%d日" % (sr, sp))
+            week.addItems(weeks_list)
+
+        pr = self
+        month_component_list = [myComboBox_startTime_month, myComboBox_stopTime_month, myLabel_month, myLabel_month2]
+        day_component_list = [myComboBox_startTime_day, myComboBox_stopTime_day, myLabel_day, myLabel_day2]
+        week_component_list = [myComboBox_startTime_week, myComboBox_stopTime_week, myLabel_week, myLabel_week2]
+        hour_component_list = [myComboBox_startTime_hour, myComboBox_stopTime_hour, myLabel_hour, myLabel_hour2]
+
+        def selectionChange():
+            if myComboBox_indexType.currentIndex() == 0:  # 指标类型是月
+                # for x in month_component_list + day_component_list + hour_component_list:
+                #     x.hide()
+                for x in day_component_list + hour_component_list + week_component_list:
+                    x.hide()
+                for x in month_component_list:
+                    x.show()
+            elif myComboBox_indexType.currentIndex() == 1:  # 指标类型是周
+                for x in hour_component_list + day_component_list:
+                    x.hide()
+                for x in week_component_list + month_component_list:
+                    x.show()
+            elif myComboBox_indexType.currentIndex() == 2:  # 指标类型是日
+                for x in hour_component_list + week_component_list:
+                    x.hide()
+                for x in day_component_list + month_component_list:
+                    x.show()
+            elif myComboBox_indexType.currentIndex() == 3:  # 指标类型是小时
+                for x in week_component_list:
+                    x.hide()
+                for x in month_component_list + day_component_list + hour_component_list:
+                    x.show()
+
+        myComboBox_startTime_year.currentIndexChanged.connect(on_year_change)
+        myComboBox_startTime_month.currentIndexChanged.connect(on_month_change)
+        myComboBox_stopTime_year.currentIndexChanged.connect(on_year_change)
+        myComboBox_stopTime_month.currentIndexChanged.connect(on_month_change)
+        myComboBox_indexType.currentIndexChanged.connect(selectionChange)
+        self.all_component["uneven_watch"] = uneven_watch_component_dict
+
+        for x in uneven_watch_component_dict:
+            uneven_watch_component_dict[x].hide()
+
+        pr = self
+
+        def watchUnevenButtonSlot():
+            timeType = myComboBox_indexType.currentText()
+
+            def getTime(timeType):
+                if timeType == "月":
+                    start_time = myComboBox_startTime_year.currentText() + "%2d" % (
+                        int(myComboBox_startTime_month.currentText()))
+                    stop_time = myComboBox_stopTime_year.currentText() + "%2d" % (
+                        int(myComboBox_stopTime_month.currentText()))
+                    now_time = "%4d%2d" % (datetime.datetime.now().year, datetime.datetime.now().month)
+                elif timeType == "日":
+                    start_time = "%s%2d%2d" % (
+                        myComboBox_startTime_year.currentText(), int(myComboBox_startTime_month.currentText()),
+                        int(myComboBox_startTime_day.currentText()))
+                    stop_time = "%s%2d%2d" % (
+                        myComboBox_stopTime_year.currentText(), int(myComboBox_stopTime_month.currentText()),
+                        int(myComboBox_stopTime_day.currentText()))
+                    now_time = "%4d%2d%2d" % (
+                        datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day)
+
+                elif timeType == "周":
+                    text1 = myComboBox_startTime_week.currentText()
+                    text2 = myComboBox_stopTime_week.currentText()
+                    start_day = int(text1.strip().split("日~")[0])
+                    stop_day0 = int(text2.strip().split("日~")[0])
+                    stop_day = int(text2.strip().split("日~")[-1][:-1])
+                    stop_month = int(myComboBox_stopTime_month.currentText())
+                    stop_year = int(myComboBox_stopTime_year.currentText())
+                    if stop_day >= stop_day0:
+                        stop_month += 1
+                        if stop_month > 12:
+                            stop_month = stop_month % 12
+                            stop_year += 1
+
+                    start_time = "%s%2d%2d" % (
+                        myComboBox_startTime_year.currentText(), int(myComboBox_startTime_month.currentText()),
+                        int(start_day))
+                    stop_time = "%4d%2d%2d" % (stop_year, stop_month, stop_day)
+                    now_time = "%4d%2d%2d" % (
+                        datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day)
+
+                elif timeType == "小时":
+                    start_time = "%s%2d%2d%2d" % (
+                        myComboBox_startTime_year.currentText(), int(myComboBox_startTime_month.currentText()),
+                        int(myComboBox_startTime_day.currentText()), int(myComboBox_startTime_hour.currentText()))
+                    stop_time = "%s%2d%2d%2d" % (
+                        myComboBox_stopTime_year.currentText(), int(myComboBox_stopTime_month.currentText()),
+                        int(myComboBox_stopTime_day.currentText()), int(myComboBox_stopTime_hour.currentText()))
+                    now_time = "%4d%2d%2d%2d" % (
+                        datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day,
+                        datetime.datetime.now().hour)
+                else:
+                    raise RuntimeError("不存在的指标类型")
+
+                return start_time, stop_time, now_time
+
+            start_time, stop_time, now_time = getTime(timeType)
+            # print(start_time, stop_time, now_time)
+            if start_time > stop_time:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
+            elif start_time > now_time or stop_time > now_time:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "不能选择未来的时间", "确认")
+            else:
+                user = get_user_by_id(pr.nowUserId)
+
+                res = get_uneven_list(pr.nowUserId, timeType, start_time, stop_time)
+
+                if res[0]:
+                    uneven_list = res[1]
+                    print(uneven_list)
+                else:
+                    QtGui.QMessageBox.warning(pr, "出错", res[1], "确认")
+
+        self.connect(myButton_export, QtCore.SIGNAL("clicked()"), watchUnevenButtonSlot)
 
     def uneven_search_fuc(self):
         uneven_search_component_dict = {}
@@ -1152,6 +1499,187 @@ class MainWindow(QtGui.QMainWindow):
                 else:
                     QtGui.QMessageBox.warning(pr, "查询失败", res[1], "确认")
         self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
+
+    def human_predict_fuc(self):
+        human_predict_component_dict = {}
+        myLabel_userType = MyLabel("用户类型 : ", self)
+        myLabel_userType.move(100, 60)
+        human_predict_component_dict["myLabel_userType"] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 60)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        human_predict_component_dict["myComboBox_userType"] = myComboBox_userType
+
+        myLabel_userName = MyLabel("用户名称 : ", self)
+        myLabel_userName.move(100, 120)
+        human_predict_component_dict["myLabel_userName"] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 120)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        human_predict_component_dict["myComboBox_userName"] = myComboBox_userName
+
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        myLabel_high = MyLabel("高方案增长百分比 : ", self)
+        myLabel_high.move(100, 180)
+        myLabel_high.resize(150, 30)
+        human_predict_component_dict['myLabel_high'] = myLabel_high
+
+        myLineEdit_high = MyLineEdit(self)
+        myLineEdit_high.move(250, 180)
+        human_predict_component_dict['myLineEdit_high'] = myLineEdit_high
+
+        myLabel_mid = MyLabel("中方案增长百分比 : ", self)
+        myLabel_mid.move(100, 240)
+        myLabel_mid.resize(150, 30)
+        human_predict_component_dict['myLabel_mid'] = myLabel_mid
+
+        myLineEdit_mid = MyLineEdit(self)
+        myLineEdit_mid.move(250, 240)
+        human_predict_component_dict['myLineEdit_mid'] = myLineEdit_mid
+
+        myLabel_low = MyLabel("低方案增长百分比 : ", self)
+        myLabel_low.move(100, 300)
+        myLabel_low.resize(150, 30)
+        human_predict_component_dict['myLabel_low'] = myLabel_low
+
+        myLineEdit_low = MyLineEdit(self)
+        myLineEdit_low.move(250, 300)
+        human_predict_component_dict['myLineEdit_low'] = myLineEdit_low
+
+        myLabel_startTime = MyLabel("开始日期 : ", self)
+        myLabel_startTime.move(100, 360)
+        human_predict_component_dict["myLabel_startTime"] = myLabel_startTime
+
+        myComboBox_startTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_startTime_year.move(200, 360)
+        human_predict_component_dict["myComboBox_startTime_year"] = myComboBox_startTime_year
+        myLabel_year = MyLabel(" 年", self)
+        myLabel_year.move(300, 360)
+        myLabel_year.resize(50, 30)
+        human_predict_component_dict["myLabel_year"] = myLabel_year
+
+        myLabel_stopTime = MyLabel("结束日期 : ", self)
+        myLabel_stopTime.move(350, 360)
+        human_predict_component_dict["myLabel_stopTime"] = myLabel_stopTime
+
+        myComboBox_stopTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_stopTime_year.move(450, 360)
+        human_predict_component_dict["myComboBox_stopTime_year"] = myComboBox_stopTime_year
+        myLabel_year2 = MyLabel(" 年", self)
+        myLabel_year2.move(550, 360)
+        myLabel_year2.resize(50, 30)
+        human_predict_component_dict["myLabel_year2"] = myLabel_year2
+
+        myButton_predict = MyButton("预测", self)
+        myButton_predict.move(100, 420)
+        human_predict_component_dict["myButton_predict"] = myButton_predict
+
+        self.all_component["human_predict"] = human_predict_component_dict
+
+        for x in human_predict_component_dict:
+            human_predict_component_dict[x].hide()
+
+        pr = self
+
+        def predictButtonSlot():
+            start_year = myComboBox_startTime_year.currentText()
+            stop_year = myComboBox_stopTime_year.currentText()
+
+            if start_year > stop_year:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
+            else:
+                user = get_user_by_id(pr.nowUserId)
+                # res = export_uneven(pr.nowUserId, timeType, start_time, stop_time, file_path)
+                # if res[0]:
+                #     QtGui.QMessageBox.information(pr, "数据导出成功", "数据导出成功！", "确认")
+                # else:
+                #     QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
+
+        self.connect(myButton_predict, QtCore.SIGNAL("clicked()"), predictButtonSlot)
+
+    def model_predict_fuc(self):
+        model_predict_component_dict = {}
+        myLabel_userType = MyLabel("用户类型 : ", self)
+        myLabel_userType.move(100, 60)
+        model_predict_component_dict["myLabel_userType"] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 60)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        model_predict_component_dict["myComboBox_userType"] = myComboBox_userType
+
+        myLabel_userName = MyLabel("用户名称 : ", self)
+        myLabel_userName.move(100, 120)
+        model_predict_component_dict["myLabel_userName"] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 120)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        model_predict_component_dict["myComboBox_userName"] = myComboBox_userName
+
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        myLabel_model = MyLabel("模型选择 : ", self)
+        myLabel_model.move(100, 180)
+        model_predict_component_dict["myLabel_model"] = myLabel_model
+
+        myComboBox_model = MyComboBox(["二次多项式回归", "logistic模型", "灰色模型"], self)
+        myComboBox_model.move(200, 180)
+        model_predict_component_dict["myComboBox_model"] = myComboBox_model
+
+        myLabel_startTime = MyLabel("开始日期 : ", self)
+        myLabel_startTime.move(100, 240)
+        model_predict_component_dict["myLabel_startTime"] = myLabel_startTime
+
+        myComboBox_startTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_startTime_year.move(200, 240)
+        model_predict_component_dict["myComboBox_startTime_year"] = myComboBox_startTime_year
+        myLabel_year = MyLabel(" 年", self)
+        myLabel_year.move(300, 240)
+        myLabel_year.resize(50, 30)
+        model_predict_component_dict["myLabel_year"] = myLabel_year
+
+        myLabel_stopTime = MyLabel("结束日期 : ", self)
+        myLabel_stopTime.move(350, 240)
+        model_predict_component_dict["myLabel_stopTime"] = myLabel_stopTime
+
+        myComboBox_stopTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_stopTime_year.move(450, 240)
+        model_predict_component_dict["myComboBox_stopTime_year"] = myComboBox_stopTime_year
+        myLabel_year2 = MyLabel(" 年", self)
+        myLabel_year2.move(550, 240)
+        myLabel_year2.resize(50, 30)
+        model_predict_component_dict["myLabel_year2"] = myLabel_year2
+
+        myButton_predict = MyButton("预测", self)
+        myButton_predict.move(100, 300)
+        model_predict_component_dict["myButton_predict"] = myButton_predict
+
+        self.all_component["model_predict"] = model_predict_component_dict
+
+        for x in model_predict_component_dict:
+            model_predict_component_dict[x].hide()
+
+        pr = self
+
+        def predictButtonSlot():
+            start_year = myComboBox_startTime_year.currentText()
+            stop_year = myComboBox_stopTime_year.currentText()
+
+            if start_year > stop_year:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
+            else:
+                user = get_user_by_id(pr.nowUserId)
+                # res = export_uneven(pr.nowUserId, timeType, start_time, stop_time, file_path)
+                # if res[0]:
+                #     QtGui.QMessageBox.information(pr, "数据导出成功", "数据导出成功！", "确认")
+                # else:
+                #     QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
+
+        self.connect(myButton_predict, QtCore.SIGNAL("clicked()"), predictButtonSlot)
 
     def selectionchange(self):
         sender = self.sender()
@@ -1673,6 +2201,100 @@ class MainWindow(QtGui.QMainWindow):
 
         self.all_component["uneven_search"]["myLabel_index"].setText("")
 
+    def display_uneven_watch(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                self.all_component[k][x].hide()
+
+        for x in self.all_component['uneven_watch']:
+            self.all_component['uneven_watch'][x].show()
+
+        def selectionChange():
+            month_component_list = [self.all_component["uneven_watch"]["myComboBox_startTime_month"],
+                                    self.all_component["uneven_watch"]["myComboBox_stopTime_month"],
+                                    self.all_component["uneven_watch"]["myLabel_month"],
+                                    self.all_component["uneven_watch"]["myLabel_month2"]]
+            day_component_list = [self.all_component["uneven_watch"]["myComboBox_startTime_day"],
+                                  self.all_component["uneven_watch"]["myComboBox_stopTime_day"],
+                                  self.all_component["uneven_watch"]["myLabel_day"],
+                                  self.all_component["uneven_watch"]["myLabel_day2"]]
+            week_component_list = [self.all_component["uneven_watch"]["myComboBox_startTime_week"],
+                                   self.all_component["uneven_watch"]["myComboBox_stopTime_week"],
+                                   self.all_component["uneven_watch"]["myLabel_week"],
+                                   self.all_component["uneven_watch"]["myLabel_week2"]]
+            hour_component_list = [self.all_component["uneven_watch"]["myComboBox_startTime_hour"],
+                                   self.all_component["uneven_watch"]["myComboBox_stopTime_hour"],
+                                   self.all_component["uneven_watch"]["myLabel_hour"],
+                                   self.all_component["uneven_watch"]["myLabel_hour2"]]
+            currentIndex = self.all_component["uneven_watch"]["myComboBox_indexType"].currentIndex()
+            if currentIndex == 0:  # 指标类型是月
+                # for x in month_component_list + day_component_list + hour_component_list:
+                #     x.hide()
+                for x in day_component_list + hour_component_list + week_component_list:
+                    x.hide()
+                for x in month_component_list:
+                    x.show()
+            elif currentIndex == 1:  # 指标类型是周
+                for x in hour_component_list + day_component_list:
+                    x.hide()
+                for x in week_component_list + month_component_list:
+                    x.show()
+            elif currentIndex == 2:  # 指标类型是日
+                for x in hour_component_list + week_component_list:
+                    x.hide()
+                for x in day_component_list + month_component_list:
+                    x.show()
+            elif currentIndex == 3:  # 指标类型是小时
+                for x in week_component_list:
+                    x.hide()
+                for x in month_component_list + day_component_list + hour_component_list:
+                    x.show()
+
+        selectionChange()
+
+        cb = self.all_component["uneven_watch"]["myComboBox_startTime_year"]
+        cb.clear()
+        cb.addItems([str(x) for x in range(2000, 2051)])
+        cb = self.all_component["uneven_watch"]["myComboBox_stopTime_year"]
+        cb.clear()
+        cb.addItems([str(x) for x in range(2000, 2051)])
+        cb = self.all_component["uneven_watch"]["myComboBox_startTime_month"]
+        cb.clear()
+        cb.addItems([str(x) for x in range(1, 13)])
+        cb = self.all_component["uneven_watch"]["myComboBox_stopTime_month"]
+        cb.clear()
+        cb.addItems([str(x) for x in range(1, 13)])
+
+        userType_list = get_all_userType()
+        cb = self.all_component["uneven_watch"]["myComboBox_userType"]
+        cb.clear()
+        cb.addItems(userType_list)
+
+    def display_human_predict(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                self.all_component[k][x].hide()
+        userType_list = get_all_userType()
+
+        cb = self.all_component["human_predict"]["myComboBox_userType"]
+        cb.clear()
+        cb.addItems(userType_list)
+
+        for x in self.all_component['human_predict']:
+            self.all_component['human_predict'][x].show()
+
+    def display_model_predict(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                self.all_component[k][x].hide()
+        userType_list = get_all_userType()
+
+        cb = self.all_component["model_predict"]["myComboBox_userType"]
+        cb.clear()
+        cb.addItems(userType_list)
+
+        for x in self.all_component['model_predict']:
+            self.all_component['model_predict'][x].show()
 
     def center(self):
         screen = QtGui.QDesktopWidget().screenGeometry()
