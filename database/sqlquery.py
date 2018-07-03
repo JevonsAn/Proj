@@ -359,6 +359,7 @@ def get_many_avg_gas(user_id, time_type, start_time, stop_time):
 
     return results
 
+
 def get_all_user_info():
     mysqlserver = Mysql()
     # timeType2Int = {"年": 1, "月": 2, "日": 3, "小时": 4}
@@ -544,51 +545,186 @@ def delete_user_data(user_data_id):
     mysql_server.closeSQL()
 
 
-def get_index_of_user_in_times(user_id, index_type, start_year, start_month, end_year, end_month):
-    mysql_server = Mysql()
-    index_list = []
-    if index_type == '年':
-        for i in range(start_year, end_year + 1):
-            index_list.append([str(i), 0])
-        sql = 'SELECT year, sum(gasNum / userNum) FROM userdata ' \
-              'WHERE user_id = %s and year >= %s and year <= %s GROUP BY year ORDER BY year '
-        mysql_server.exe(sql, (user_id, start_year, end_year))
-    else:
-        for i in range(start_year * 12 + start_month, end_year * 12 + end_month + 1):
-            index_list.append([str(i // 12) + '/' + str((i - 1) % 12 + 1), 0])
-        sql = 'SELECT year, month, sum(gasNum / userNum) FROM userdata ' \
-              'WHERE user_id = %s and (year, month) >= (%s, %s) and (year, month) <= (%s, %s) ' \
-              'GROUP BY year, month order by year, month'
-        mysql_server.exe(sql, (user_id, start_year, start_month, end_year, end_month))
-    for row in mysql_server.results():
-        if index_type == '年':
-            index_list[row[0] - start_year][1] = float('{:.2f}'.format(row[1]))
-        else:
-            index_list[(row[0] * 12 + row[1]) - (start_year * 12 + start_month)][1] = float('{:.2f}'.format(row[2]))
-    return index_list
+# def get_index_of_user_in_times(user_id, index_type, start_year, start_month, end_year, end_month):
+#     mysql_server = Mysql()
+#     index_list = []
+#     if index_type == '年':
+#         for i in range(start_year, end_year + 1):
+#             index_list.append([str(i), 0])
+#         sql = 'SELECT year, sum(gasNum / userNum) FROM userdata ' \
+#               'WHERE user_id = %s and year >= %s and year <= %s GROUP BY year ORDER BY year '
+#         mysql_server.exe(sql, (user_id, start_year, end_year))
+#     else:
+#         for i in range(start_year * 12 + start_month, end_year * 12 + end_month + 1):
+#             index_list.append([str(i // 12) + '/' + str((i - 1) % 12 + 1), 0])
+#         sql = 'SELECT year, month, sum(gasNum / userNum) FROM userdata ' \
+#               'WHERE user_id = %s and (year, month) >= (%s, %s) and (year, month) <= (%s, %s) ' \
+#               'GROUP BY year, month order by year, month'
+#         mysql_server.exe(sql, (user_id, start_year, start_month, end_year, end_month))
+#     for row in mysql_server.results():
+#         if index_type == '年':
+#             index_list[row[0] - start_year][1] = float('{:.2f}'.format(row[1]))
+#         else:
+#             index_list[(row[0] * 12 + row[1]) - (start_year * 12 + start_month)][1] = float('{:.2f}'.format(row[2]))
+#     return index_list
 
 
-def get_weather_in_times(index_type, start_year, start_month, end_year, end_month):
+def get_weather_in_times(index_type, start_year, start_month, start_day, end_year, end_month, end_day):
     mysql_server = Mysql()
     weather_list = []
+    weather_dict = {}
     if index_type == '年':
         for i in range(start_year, end_year + 1):
             weather_list.append([str(i)])
         sql = 'SELECT YEAR(date), AVG(max), AVG(min), AVG(ord) FROM weather ' \
               'WHERE YEAR(date) >= %s and YEAR(date) <= %s GROUP BY YEAR(date) ORDER BY YEAR(date)'
         mysql_server.exe(sql, (start_year, end_year))
-    else:
+    elif index_type == '月':
         for i in range(start_year * 12 + start_month, end_year * 12 + end_month + 1):
             weather_list.append([str(i // 12) + '/' + str((i - 1) % 12 + 1)])
         sql = 'SELECT YEAR(date), MONTH(date), AVG(max), AVG(min), AVG(ord) FROM weather ' \
               'WHERE (YEAR(date), MONTH(date)) >= (%s, %s) and (YEAR(date), MONTH(date)) <= (%s, %s) ' \
               'GROUP BY YEAR(date), MONTH(date) order by YEAR(date), MONTH(date)'
         mysql_server.exe(sql, (start_year, start_month, end_year, end_month))
+    elif index_type == '日' or index_type == '周' or index_type == '小时':
+        # dayfrom = datetime.datetime.strptime("%d-%d-%d" % (start_year, start_month, start_day), '%Y-%m-%d').date()
+        # dayto = datetime.datetime.strptime("%d-%d-%d" % (end_year, end_month, end_day), '%Y-%m-%d').date()
+        # dayscount = (dayto - dayfrom).days
+        # for i in range(dayscount):
+        #     d = dayfrom + datetime.timedelta(days=i)
+        # weather_dict["%d/%d/%d" % (d.year, d.month, d.day)] = []
+        sql = 'SELECT YEAR(date), MONTH(date), DAY(date), AVG(max), AVG(min), AVG(ord) FROM weather ' \
+              'WHERE (YEAR(date), MONTH(date), DAY(date)) >= (%s, %s, %s) and (YEAR(date), MONTH(date), DAY(date)) <= (%s, %s, %s) ' \
+              'GROUP BY YEAR(date), MONTH(date), DAY(date) order by YEAR(date), MONTH(date), DAY(date)'
+        mysql_server.exe(sql, (start_year, start_month, start_day, end_year, end_month, end_day))
     for row in mysql_server.results():
         if index_type == '年':
             weather_list[row[0] - start_year].extend([row[1], row[2], row[3]])
-        else:
+        elif index_type == '月':
             weather_list[(row[0] * 12 + row[1]) - (start_year * 12 + start_month)].extend([row[2], row[3], row[4]])
+        elif index_type == '日' or index_type == '周' or index_type == '小时':
+            # weather_dict["%d/%d/%d" % (row[0], row[1], row[2])] = [row[3], row[4], row[5]]
+            weather_list.append(["%d/%d/%d" % (row[0], row[1], row[2]), row[3], row[4], row[5]])
+
     return weather_list
 
 
+def get_one_year_user_number(user_id, year):
+    sql = 'SELECT u.year, u.month, u.day, u.hour, u.userNum From userdata u where u.user_id = %s and u.year = %s'
+    params = (user_id, year)
+    mysql_server = Mysql()
+    mysql_server.exe(sql, params)
+    results = {}
+    for row in mysql_server.results():
+        if row[0] in results:
+            if row[1] in results[row[0]]:
+                if row[2] in results[row[0]][row[1]]:
+                    if row[3] in results[row[0]][row[1]][row[2]]:
+                        pass
+                    else:
+                        results[row[0]][row[1]][row[2]][row[3]] = row[4]
+                else:
+                    results[row[0]][row[1]][row[2]] = {row[3]:
+                                                           row[4]
+                                                       }
+            else:
+                results[row[0]][row[1]] = {row[2]:
+                                               {row[3]:
+                                                    row[4]
+                                                }
+                                           }
+        else:
+            results[row[0]] = {row[1]:
+                                   {row[2]:
+                                        {row[3]:
+                                             row[4]
+                                         }
+                                    }
+                               }
+
+    time_gas = results
+    all = 0
+    if year in time_gas:
+        mts = time_gas[year]
+        mts_keys = mts.keys()
+        if 0 in mts_keys:
+            all = mts[0][0][0]
+        else:
+            for m in mts_keys:
+                days = mts[m]
+                days_keys = days.keys()
+                if 0 in days_keys:
+                    all = days[0][0]
+                else:
+                    for d in days_keys:
+                        hours = days[d]
+                        hours_keys = hours.keys()
+                        if 0 in hours_keys:
+                            all = hours[0]
+                        else:
+                            for h in hours_keys:
+                                all = hours[h]
+
+    return all
+
+
+def get_many_year_user_number(user_id, year):
+    sql = 'SELECT u.year, u.month, u.day, u.hour, u.userNum From userdata u where u.user_id = %s and u.year <= %s'
+    params = (user_id, year)
+    mysql_server = Mysql()
+    mysql_server.exe(sql, params)
+    results = {}
+    for row in mysql_server.results():
+        if row[0] in results:
+            if row[1] in results[row[0]]:
+                if row[2] in results[row[0]][row[1]]:
+                    if row[3] in results[row[0]][row[1]][row[2]]:
+                        pass
+                    else:
+                        results[row[0]][row[1]][row[2]][row[3]] = row[4]
+                else:
+                    results[row[0]][row[1]][row[2]] = {row[3]:
+                                                           row[4]
+                                                       }
+            else:
+                results[row[0]][row[1]] = {row[2]:
+                                               {row[3]:
+                                                    row[4]
+                                                }
+                                           }
+        else:
+            results[row[0]] = {row[1]:
+                                   {row[2]:
+                                        {row[3]:
+                                             row[4]
+                                         }
+                                    }
+                               }
+
+    time_gas = results
+    year_dict = {}
+    for y in time_gas.keys():
+        all = 0
+        if y in time_gas:
+            mts = time_gas[y]
+            mts_keys = mts.keys()
+            if 0 in mts_keys:
+                all = mts[0][0][0]
+            else:
+                for m in mts_keys:
+                    days = mts[m]
+                    days_keys = days.keys()
+                    if 0 in days_keys:
+                        all = days[0][0]
+                    else:
+                        for d in days_keys:
+                            hours = days[d]
+                            hours_keys = hours.keys()
+                            if 0 in hours_keys:
+                                all = hours[0]
+                            else:
+                                for h in hours_keys:
+                                    all = hours[h]
+        year_dict[y] = all
+
+    return year_dict

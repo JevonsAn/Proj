@@ -1,4 +1,4 @@
-from database.sqlquery import get_gas_index, get_index_of_user_in_times, get_weather_in_times
+from database.sqlquery import get_gas_index, get_weather_in_times
 
 
 def get_gas_index_from_database(user_id, index_type, year, month):
@@ -52,8 +52,40 @@ def get_gas_index_from_database(user_id, index_type, year, month):
         return all
 
 
-def get_index_of_user_in_times_from_database(user_id, index_type, start_year, start_month, end_year, end_month):
-    return get_index_of_user_in_times(user_id, index_type, start_year, start_month, end_year, end_month)
+def get_user_gasIndex_year_and_month(user_id, timeType, start_time, stop_time):
+    # user = get_user_by_id(user_id)
+    # unit = "%s / %s · %s" % (user["gasUnit"], user["userUnit"], timeType)
+    gasIndex_list = []
 
-def get_weather_in_times_from_database(index_type, start_year, start_month, end_year, end_month):
-    return get_weather_in_times(index_type, start_year, start_month, end_year, end_month)
+    def timeChange(timeType, t):
+        if timeType == "月":
+            return "%d-%d" % (t[0], t[1])
+        elif timeType == "年":
+            return "%d" % t[0]
+
+    all_time = {timeType: []}
+    if timeType == "年":
+        all_time[timeType] = [(x, 0) for x in range(int(start_time[:4]), int(stop_time[:4]) + 1)]
+    elif timeType == "月":
+        all_time[timeType] = [(int(start_time[:4]), m) for m in range(int(start_time[4:]), 13)] \
+                             + [(x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4])) for m in
+                                range(1, 13)] \
+                             + [(int(stop_time[:4]), m) for m in range(1, int(stop_time[4:]) + 1) if
+                                start_time[:4] < stop_time[:4]]
+    for t in all_time[timeType]:
+        lt = []
+        lt.append(timeChange(timeType, t))
+        gasIndex = get_gas_index_from_database(user_id, timeType, *t)
+        if gasIndex == 0 or abs(gasIndex) <= 0.00001:
+            continue
+        lt.append(gasIndex)
+        gasIndex_list.append(lt)
+    return gasIndex_list
+
+def get_index_of_user_in_times_from_database(user_id, index_type, start_year, start_month, end_year, end_month):
+    return get_user_gasIndex_year_and_month(user_id, index_type, "%4d%2d" % (start_year, start_month),
+                                            "%4d%2d" % (end_year, end_month))
+
+
+def get_weather_in_times_from_database(index_type, start_year, start_month, start_day, end_year, end_month, end_day):
+    return get_weather_in_times(index_type, start_year, start_month, start_day, end_year, end_month, end_day)

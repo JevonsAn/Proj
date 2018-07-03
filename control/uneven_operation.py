@@ -74,13 +74,14 @@ def get_uneven_list(user_id, timeType, start_time, stop_time):
             all_time[timeType] = ["%4d%2d" % (int(start_time[:4]), m) for m in range(int(start_time[4:6]), 13)] \
                                  + ["%4d%2d" % (x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4])) for m
                                     in range(1, 13)] \
-                                 + ["%4d%2d" % (int(stop_time[:4]), m) for m in range(1, int(stop_time[4:6]) + 1)]
+                                 + ["%4d%2d" % (int(stop_time[:4]), m) for m in range(1, int(stop_time[4:6]) + 1) if
+                                    start_time[:4] < stop_time[:4]]
         elif timeType == "日":
             dayfrom = datetime.datetime.strptime(start_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayscount = (dayto - dayfrom).days
             all_time[timeType] = []
-            for i in range(dayscount):
+            for i in range(dayscount + 1):
                 d = dayfrom + datetime.timedelta(days=i)
                 all_time[timeType].append("%4d%2d%2d" % (d.year, d.month, d.day))
 
@@ -89,7 +90,7 @@ def get_uneven_list(user_id, timeType, start_time, stop_time):
             dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayscount = (dayto - dayfrom).days
             all_time[timeType] = []
-            for i in range(dayscount):
+            for i in range(dayscount + 1):
                 d = dayfrom + datetime.timedelta(days=i)
                 all_time[timeType].append("%4d%2d%2d" % (d.year, d.month, d.day))
 
@@ -98,7 +99,7 @@ def get_uneven_list(user_id, timeType, start_time, stop_time):
             dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayscount = (dayto - dayfrom).days
             all_time[timeType] = []
-            for i in range(dayscount):
+            for i in range(dayscount + 1):
                 d = dayfrom + datetime.timedelta(days=i)
                 for h in range(1, 23):
                     all_time[timeType].append("%4d%2d%2d%2d" % (d.year, d.month, d.day, h))
@@ -111,7 +112,7 @@ def get_uneven_list(user_id, timeType, start_time, stop_time):
             # lt.append(user["userName"])
             lt.append(timeChange(timeType, t))
             lres = search_uneven(user_id, timeType, t, time_gas)
-            if lres[0] is False or lres[1] == 0:
+            if lres[0] is False:
                 continue
             else:
                 lt.append(lres[1])

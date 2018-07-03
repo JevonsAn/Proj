@@ -1,5 +1,5 @@
 from database.sqlquery import check_admin, get_user_date, get_user_data_by_date, update_user_data, delete_user_data
-from database.sqlquery import insert_weather, insert_user_data
+from database.sqlquery import insert_weather, insert_user_data, get_user_by_id
 from database.sqlquery import get_all_user_info, get_many_avg_gas
 from control.gas_index_opeartion import get_gas_index_from_database
 from control.user_operation import get_user_by_id
@@ -93,7 +93,8 @@ def export_gasIndex(timeType, start_time, stop_time, file_path):
             all_time[timeType] = [(int(start_time[:4]), m) for m in range(int(start_time[4:]), 13)] \
                                  + [(x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4])) for m in
                                     range(1, 13)] \
-                                 + [(int(stop_time[:4]), m) for m in range(1, int(stop_time[4:]) + 1)]
+                                 + [(int(stop_time[:4]), m) for m in range(1, int(stop_time[4:]) + 1) if
+                                    start_time[:4] < stop_time[:4]]
 
         for user in user_list:
             for t in all_time[timeType]:
@@ -160,7 +161,7 @@ def export_uneven(user_id, timeType, start_time, stop_time, file_path):
             month = int(t[4:6])
             day = int(t[6:8])
             hour = int(t[8:10])
-            return "%d-%d-%d : %d时" % (year, month, day, hour)
+            return "%d-%d-%d : %d-%d时" % (year, month, day, hour - 1, hour)
         elif timeType == "周":
             year = int(t[:4])
             month = int(t[4:6])
@@ -187,7 +188,7 @@ def export_uneven(user_id, timeType, start_time, stop_time, file_path):
             dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayscount = (dayto - dayfrom).days
             all_time[timeType] = []
-            for i in range(dayscount):
+            for i in range(dayscount + 1):
                 d = dayfrom + datetime.timedelta(days=i)
                 all_time[timeType].append("%4d%2d%2d" % (d.year, d.month, d.day))
 
@@ -196,7 +197,7 @@ def export_uneven(user_id, timeType, start_time, stop_time, file_path):
             dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayscount = (dayto - dayfrom).days
             all_time[timeType] = []
-            for i in range(dayscount):
+            for i in range(dayscount + 1):
                 d = dayfrom + datetime.timedelta(days=i)
                 all_time[timeType].append("%4d%2d%2d" % (d.year, d.month, d.day))
 
@@ -205,20 +206,21 @@ def export_uneven(user_id, timeType, start_time, stop_time, file_path):
             dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayscount = (dayto - dayfrom).days
             all_time[timeType] = []
-            for i in range(dayscount):
+            for i in range(dayscount + 1):
                 d = dayfrom + datetime.timedelta(days=i)
-                for h in range(1, 23):
+                for h in range(1, 25):
                     all_time[timeType].append("%4d%2d%2d%2d" % (d.year, d.month, d.day, h))
 
         gasIndex_list = []
-
+        print(all_time[timeType])
         for t in all_time[timeType]:
             lt = []
             # lt.append(user["userType"])
             # lt.append(user["userName"])
             lt.append(timeChange(timeType, t))
             lres = search_uneven(user_id, timeType, t, time_gas)
-            if lres[0] is False or lres[1] == 0:
+            print(lres)
+            if lres[0] is False:
                 continue
             else:
                 lt.append(lres[1])

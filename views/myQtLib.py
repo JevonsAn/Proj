@@ -1,19 +1,19 @@
 import time
 import datetime
 
-from PyQt4 import QtGui, QtCore
+from copy import deepcopy
 from pymysql import IntegrityError
 
 import pyqtgraph as pg
+# from PyQt4 import QtGui, QtCore
 from pyqtgraph import QtGui, QtCore
 from views.views_setting import view_setting
 
 from control.user_operation import add_user, get_all_userType, get_userNames_by_userType
 from control.user_operation import get_user_by_id, update_user, delete_user
 
-from control.data_operation import check_admin_password, get_user_data_by_date_from_database, \
-    update_user_data_from_database
-from control.data_operation import delete_user_data_from_database
+from control.data_operation import check_admin_password, get_user_data_by_date_from_database
+from control.data_operation import update_user_data_from_database, delete_user_data_from_database
 from control.data_operation import add_weather, datetime_to_timestamp, add_user_data
 from control.data_operation import export_gasIndex, export_uneven
 
@@ -21,11 +21,8 @@ from control.gas_index_opeartion import get_gas_index_from_database, get_index_o
 from control.gas_index_opeartion import get_weather_in_times_from_database
 
 from control.uneven_operation import search_uneven, get_uneven_list
-from control.data_operation import export_gasIndex
-from pymysql import IntegrityError
-from control.gas_index_opeartion import get_gas_index_from_database, get_index_of_user_in_times_from_database, \
-    get_weather_in_times_from_database
-from copy import deepcopy
+
+from control.predict_operation import human_predict_userNum, model_predict_userNum, model_predict_gasIndex
 
 month_dict = {'大月': ['', '1', '3', '5', '7', '8', '10', '12'], '小月': ['', '4', '6', '9', '11']}
 day_dict = {'小月': [''] + [str(x) for x in range(1, 31)], '大月': [''] + [str(x) for x in range(1, 32)],
@@ -173,7 +170,8 @@ class MyPlot(pg.PlotWidget):
         self.addLegend(size=(80, 80))
         self.showGrid(x=True, y=True, alpha=0.5)
         self.plot(x=list(x_dict.keys()), y=[row[1] for row in index_data], pen='r', name='指标', symbolBrush=(255, 0, 0))
-        weather_plot = self.plot(x=list(x_dict.keys()), y=[row[3] for row in weather_data], pen='b', name='气温', symbolBrush=(0, 0, 255))
+        # if weather_data:
+        #     weather_plot = self.plot(x=list(x_dict.keys()), y=[row[3] for row in weather_data], pen='b', name='气温', symbolBrush=(0, 0, 255))
         self.setLabel(axis='left', text='指标')
         self.setLabel(axis='bottom', text='日期')
         self.setBackground(None)
@@ -188,13 +186,19 @@ class MyPlot(pg.PlotWidget):
                 mousePoint = vb.mapSceneToView(pos)
                 index = int(mousePoint.x())
                 pos_y = int(mousePoint.y())
-                print(index)
+                # print(index)
                 if 0 <= index < len(index_data):
+                    # if weather_data:
+                    #     label.setHtml(
+                    #         "<p style='color:black'>日期：{0}</p>"
+                    #         "<p style='color:black'>指标：{1}{2}</p>"
+                    #         "<p style='color:black'>气温：{3}℃</p>".format(
+                    #             x_dict[index], index_data[index][1], index_unit, weather_data[index][3]))
+                    # else:
                     label.setHtml(
                         "<p style='color:black'>日期：{0}</p>"
-                        "<p style='color:black'>指标：{1}{2}</p>"
-                        "<p style='color:black'>气温：{3}℃</p>".format(
-                            x_dict[index], index_data[index][1], index_unit, weather_data[index][3]))
+                        "<p style='color:black'>指标：{1}{2}</p>".format(
+                            x_dict[index], index_data[index][1], index_unit))
                     label.setPos(mousePoint.x(), mousePoint.y())
                 vLine.setPos(mousePoint.x())
                 hLine.setPos(mousePoint.y())
@@ -303,6 +307,12 @@ class MainWindow(QtGui.QMainWindow):
         self.model_predict_fuc()
         self.connect(model_predict, QtCore.SIGNAL('triggered()'), self.display_model_predict)
         yongqi_menu.addAction(model_predict)
+
+        index_predict = QtGui.QAction('用气指标预测', self)
+        index_predict.setStatusTip('用气指标预测')
+        self.index_predict_fuc()
+        self.connect(index_predict, QtCore.SIGNAL('triggered()'), self.display_index_predict)
+        yongqi_menu.addAction(index_predict)
 
         uneven_search = QtGui.QAction('不均匀系数查询', self)
         uneven_search.setStatusTip('不均匀系数查询')
@@ -1182,9 +1192,11 @@ class MainWindow(QtGui.QMainWindow):
                     start_day = int(text1.strip().split("日~")[0])
                     stop_day0 = int(text2.strip().split("日~")[0])
                     stop_day = int(text2.strip().split("日~")[-1][:-1])
+                    print(text2.strip().split("日~")[-1], text2.strip().split("日~")[-1][:-1], stop_day0)
+                    print(stop_day)
                     stop_month = int(myComboBox_stopTime_month.currentText())
                     stop_year = int(myComboBox_stopTime_year.currentText())
-                    if stop_day >= stop_day0:
+                    if stop_day <= stop_day0:
                         stop_month += 1
                         if stop_month > 12:
                             stop_month = stop_month % 12
@@ -1221,11 +1233,48 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 user = get_user_by_id(pr.nowUserId)
 
+                print(pr.nowUserId, timeType, start_time, stop_time)
                 res = get_uneven_list(pr.nowUserId, timeType, start_time, stop_time)
 
                 if res[0]:
                     uneven_list = res[1]
-                    print(uneven_list)
+                    weather_list = []
+                    if timeType == "日" or timeType == "周":
+                        weather_list = get_weather_in_times_from_database(myComboBox_indexType.currentText(),
+                                                                          int(start_time[:4]),
+                                                                          int(start_time[4:6]), int(start_time[6:8]),
+                                                                          int(stop_time[:4]), int(stop_time[4:6]),
+                                                                          int(stop_time[6:8]))
+                    elif timeType == "月":
+                        weather_list = get_weather_in_times_from_database(myComboBox_indexType.currentText(),
+                                                                          int(start_time[:4]),
+                                                                          int(start_time[4:6]), 0, int(stop_time[:4]),
+                                                                          int(stop_time[4:6]), 0)
+                    # print(uneven_list, weather_list)
+
+                    d = MyDialog(self)
+                    user_content = get_user_by_id(self.nowUserId)
+                    unit = user_content['gasUnit'] + '/' + user_content['userUnit'] + '·' + \
+                           self.all_component['examine_index_result']['myComboBox_indexType'].currentText()
+                    # temp_index_list = deepcopy(uneven_list)
+                    # for row in temp_index_list:
+                    #     row[1] = str(row[1]) + ' ' + unit
+                    myTable_index = MyTable(d, uneven_list, ['日期', '不均匀系数'])
+                    myTable_index.move(0, 0)
+
+                    flag = True
+                    for w in weather_list:
+                        if len(w) <= 3:
+                            flag = False
+                    if not flag:
+                        weather_list = []
+
+                    myPlot_index = MyPlot(d, uneven_list, "", weather_list, '不均匀系数折线图')
+                    myPlot_index.move(250, 0)
+                    d.setWindowTitle("不均匀系数结果查看")
+                    d.setWindowModality(QtCore.Qt.ApplicationModal)
+                    d.exec_()
+
                 else:
                     QtGui.QMessageBox.warning(pr, "出错", res[1], "确认")
 
@@ -1528,6 +1577,10 @@ class MainWindow(QtGui.QMainWindow):
         myLineEdit_high = MyLineEdit(self)
         myLineEdit_high.move(250, 180)
         human_predict_component_dict['myLineEdit_high'] = myLineEdit_high
+        myLabel_percent0 = MyLabel(" %", self)
+        myLabel_percent0.move(351, 180)
+        myLabel_percent0.resize(50, 30)
+        human_predict_component_dict["myLabel_percent0"] = myLabel_percent0
 
         myLabel_mid = MyLabel("中方案增长百分比 : ", self)
         myLabel_mid.move(100, 240)
@@ -1537,6 +1590,10 @@ class MainWindow(QtGui.QMainWindow):
         myLineEdit_mid = MyLineEdit(self)
         myLineEdit_mid.move(250, 240)
         human_predict_component_dict['myLineEdit_mid'] = myLineEdit_mid
+        myLabel_percent1 = MyLabel(" %", self)
+        myLabel_percent1.move(351, 240)
+        myLabel_percent1.resize(50, 30)
+        human_predict_component_dict["myLabel_percent1"] = myLabel_percent1
 
         myLabel_low = MyLabel("低方案增长百分比 : ", self)
         myLabel_low.move(100, 300)
@@ -1546,6 +1603,10 @@ class MainWindow(QtGui.QMainWindow):
         myLineEdit_low = MyLineEdit(self)
         myLineEdit_low.move(250, 300)
         human_predict_component_dict['myLineEdit_low'] = myLineEdit_low
+        myLabel_percent2 = MyLabel(" %", self)
+        myLabel_percent2.move(351, 300)
+        myLabel_percent2.resize(50, 30)
+        human_predict_component_dict["myLabel_percent2"] = myLabel_percent2
 
         myLabel_startTime = MyLabel("开始日期 : ", self)
         myLabel_startTime.move(100, 360)
@@ -1583,18 +1644,45 @@ class MainWindow(QtGui.QMainWindow):
         pr = self
 
         def predictButtonSlot():
-            start_year = myComboBox_startTime_year.currentText()
-            stop_year = myComboBox_stopTime_year.currentText()
+            start_year = int(myComboBox_startTime_year.currentText())
+            stop_year = int(myComboBox_stopTime_year.currentText())
+            high = myLineEdit_high.text()
+            mid = myLineEdit_mid.text()
+            low = myLineEdit_low.text()
 
             if start_year > stop_year:
                 QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
+            elif not (high and mid and low):
+                QtGui.QMessageBox.warning(pr, "输入不全", "某方案增长比未填写", "确认")
+            elif not (high.isdigit() and mid.isdigit() and low.isdigit()):
+                QtGui.QMessageBox.warning(pr, "输入有误", "某方案增长百分比不是整数", "确认")
             else:
-                user = get_user_by_id(pr.nowUserId)
-                # res = export_uneven(pr.nowUserId, timeType, start_time, stop_time, file_path)
-                # if res[0]:
-                #     QtGui.QMessageBox.information(pr, "数据导出成功", "数据导出成功！", "确认")
-                # else:
-                #     QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
+                def strfList(l):
+                    return [str(x) for x in l]
+
+                user_content = get_user_by_id(pr.nowUserId)
+                res = human_predict_userNum(pr.nowUserId, start_year, stop_year, float(high) * 0.01, float(mid) * 0.01,
+                                            float(low) * 0.01)
+                if res[0]:
+                    high_dict, mid_dict, low_dict = res[1]
+                    year_list = list(range(start_year, stop_year + 1))
+                    d = MyDialog(self)
+                    userUnit = user_content["userUnit"]
+                    column_title = ['用户规模（%s）' % userUnit] + ["%d年" % y for y in year_list]
+                    data_list = [["高方案预测数据："] + strfList(high_dict), ["中方案预测数据："] + strfList(mid_dict),
+                                 ["低方案预测数据："] + strfList(low_dict)]
+                    print(data_list, column_title)
+                    myTable_index = MyTable(d, data_list, column_title)
+                    myTable_index.resize(view_setting["BigTableWidth"], view_setting["BigTableHeight"])
+                    myTable_index.move(0, 0)
+                    myTable_index.resizeColumnsToContents()
+                    myTable_index.resizeRowsToContents()
+                    d.setWindowTitle("预测结果")
+                    d.setWindowModality(QtCore.Qt.ApplicationModal)
+                    d.exec_()
+
+                else:
+                    QtGui.QMessageBox.warning(pr, "预测失败", res[1], "确认")
 
         self.connect(myButton_predict, QtCore.SIGNAL("clicked()"), predictButtonSlot)
 
@@ -1624,7 +1712,7 @@ class MainWindow(QtGui.QMainWindow):
         myLabel_model.move(100, 180)
         model_predict_component_dict["myLabel_model"] = myLabel_model
 
-        myComboBox_model = MyComboBox(["二次多项式回归", "logistic模型", "灰色模型"], self)
+        myComboBox_model = MyComboBox(["线性回归模型", "多项式回归模型", "对数回归模型", "灰色模型"], self)
         myComboBox_model.move(200, 180)
         model_predict_component_dict["myComboBox_model"] = myComboBox_model
 
@@ -1664,20 +1752,206 @@ class MainWindow(QtGui.QMainWindow):
         pr = self
 
         def predictButtonSlot():
-            start_year = myComboBox_startTime_year.currentText()
-            stop_year = myComboBox_stopTime_year.currentText()
+            start_year = int(myComboBox_startTime_year.currentText())
+            stop_year = int(myComboBox_stopTime_year.currentText())
+            model_type = myComboBox_model.currentIndex()
 
             if start_year > stop_year:
                 QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
             else:
-                user = get_user_by_id(pr.nowUserId)
-                # res = export_uneven(pr.nowUserId, timeType, start_time, stop_time, file_path)
-                # if res[0]:
-                #     QtGui.QMessageBox.information(pr, "数据导出成功", "数据导出成功！", "确认")
-                # else:
-                #     QtGui.QMessageBox.warning(pr, "数据导出失败", res[1], "确认")
+                def strfList(l):
+                    return [str(x) for x in l]
+
+                user_content = get_user_by_id(pr.nowUserId)
+                res = model_predict_userNum(pr.nowUserId, start_year, stop_year, model_type)
+                if res[0]:
+                    predict_result = res[1]
+                    year_list = list(range(start_year, stop_year + 1))
+                    d = MyDialog(self)
+                    userUnit = user_content["userUnit"]
+                    column_title = ["年份"] + ["%d年" % y for y in year_list]
+                    data_list = [['用户数量（%s）' % userUnit] + strfList(predict_result)]
+                    print(data_list, column_title)
+                    myTable_index = MyTable(d, data_list, column_title)
+                    myTable_index.resize(view_setting["BigTableWidth"], view_setting["BigTableHeight"])
+                    myTable_index.move(0, 0)
+                    myTable_index.resizeColumnsToContents()
+                    myTable_index.resizeRowsToContents()
+                    d.setWindowTitle("预测结果")
+                    d.setWindowModality(QtCore.Qt.ApplicationModal)
+                    d.exec_()
+
+                else:
+                    QtGui.QMessageBox.warning(pr, "预测失败", res[1], "确认")
 
         self.connect(myButton_predict, QtCore.SIGNAL("clicked()"), predictButtonSlot)
+
+    def index_predict_fuc(self):
+        index_predict_component_dict = {}
+        myLabel_userType = MyLabel("用户类型 : ", self)
+        myLabel_userType.move(100, 60)
+        index_predict_component_dict["myLabel_userType"] = myLabel_userType
+
+        myComboBox_userType = MyComboBox([], self)
+        myComboBox_userType.move(200, 60)
+        myComboBox_userType.currentIndexChanged.connect(self.selectionchange)
+        index_predict_component_dict["myComboBox_userType"] = myComboBox_userType
+
+        myLabel_userName = MyLabel("用户名称 : ", self)
+        myLabel_userName.move(100, 120)
+        index_predict_component_dict["myLabel_userName"] = myLabel_userName
+
+        myComboBox_userName = MyComboBox([], self)
+        myComboBox_userName.move(200, 120)
+        myComboBox_userName.currentIndexChanged.connect(self.selectUser)
+        index_predict_component_dict["myComboBox_userName"] = myComboBox_userName
+
+        self.comboBoxPair[myComboBox_userType] = myComboBox_userName
+
+        myLabel_indexType = MyLabel("指标类型 : ", self)
+        myLabel_indexType.move(100, 180)
+        index_predict_component_dict["myLabel_indexType"] = myLabel_indexType
+
+        myComboBox_indexType = MyComboBox(["年", "月"], self)
+        myComboBox_indexType.move(200, 180)
+        index_predict_component_dict["myComboBox_indexType"] = myComboBox_indexType
+
+        myLabel_model = MyLabel("模型选择 : ", self)
+        myLabel_model.move(100, 240)
+        index_predict_component_dict["myLabel_model"] = myLabel_model
+
+        myComboBox_model = MyComboBox(["指数平滑", "灰色模型", "回归分析"], self)
+        myComboBox_model.move(200, 240)
+        index_predict_component_dict["myComboBox_model"] = myComboBox_model
+
+        myLabel_startTime = MyLabel("开始日期 : ", self)
+        myLabel_startTime.move(100, 300)
+        index_predict_component_dict["myLabel_startTime"] = myLabel_startTime
+
+        myComboBox_startTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_startTime_year.move(200, 300)
+        index_predict_component_dict["myComboBox_startTime_year"] = myComboBox_startTime_year
+        myLabel_year = MyLabel(" 年", self)
+        myLabel_year.move(300, 300)
+        myLabel_year.resize(50, 30)
+        index_predict_component_dict["myLabel_year"] = myLabel_year
+
+        myComboBox_startTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_startTime_month.move(350, 300)
+        index_predict_component_dict["myComboBox_startTime_month"] = myComboBox_startTime_month
+        myLabel_month = MyLabel(" 月", self)
+        myLabel_month.move(450, 300)
+        myLabel_month.resize(50, 30)
+        index_predict_component_dict["myLabel_month"] = myLabel_month
+
+        myLabel_stopTime = MyLabel("结束日期 : ", self)
+        myLabel_stopTime.move(100, 360)
+        index_predict_component_dict["myLabel_stopTime"] = myLabel_stopTime
+
+        myComboBox_stopTime_year = MyComboBox([str(s) for s in range(2000, 2051)], self)
+        myComboBox_stopTime_year.move(200, 360)
+        index_predict_component_dict["myComboBox_stopTime_year"] = myComboBox_stopTime_year
+        myLabel_year2 = MyLabel(" 年", self)
+        myLabel_year2.move(300, 360)
+        myLabel_year2.resize(50, 30)
+        index_predict_component_dict["myLabel_year2"] = myLabel_year2
+        myComboBox_stopTime_month = MyComboBox([str(s) for s in range(1, 13)], self)
+        myComboBox_stopTime_month.move(350, 360)
+        index_predict_component_dict["myComboBox_stopTime_month"] = myComboBox_stopTime_month
+        myLabel_month2 = MyLabel(" 月", self)
+        myLabel_month2.move(450, 360)
+        myLabel_month2.resize(50, 30)
+        index_predict_component_dict["myLabel_month2"] = myLabel_month2
+
+        def selectionChange():
+            if pr.all_component["index_predict"]["myComboBox_indexType"].currentIndex() == 0:  # 指标类型是年
+                pr.all_component["index_predict"]["myComboBox_startTime_month"].hide()
+                pr.all_component["index_predict"]["myComboBox_stopTime_month"].hide()
+                pr.all_component["index_predict"]["myLabel_month"].hide()
+                pr.all_component["index_predict"]["myLabel_month2"].hide()
+                myComboBox_model.clear()
+                myComboBox_model.addItems(["指数平滑", "灰色模型", "回归分析"])
+            elif pr.all_component["index_predict"]["myComboBox_indexType"].currentIndex() == 1:  # 指标类型是月
+                pr.all_component["index_predict"]["myComboBox_startTime_month"].show()
+                pr.all_component["index_predict"]["myComboBox_stopTime_month"].show()
+                pr.all_component["index_predict"]["myLabel_month"].show()
+                pr.all_component["index_predict"]["myLabel_month2"].show()
+                myComboBox_model.clear()
+                myComboBox_model.addItems(["指数平滑", "灰色模型", "回归分析"])
+
+        myComboBox_indexType.currentIndexChanged.connect(selectionChange)
+
+        myButton_predict = MyButton("预测", self)
+        myButton_predict.move(100, 420)
+        index_predict_component_dict["myButton_predict"] = myButton_predict
+
+        self.all_component["index_predict"] = index_predict_component_dict
+
+        for x in index_predict_component_dict:
+            index_predict_component_dict[x].hide()
+
+        pr = self
+
+        def predictButtonSlot():
+            start_year = int(myComboBox_startTime_year.currentText())
+            stop_year = int(myComboBox_stopTime_year.currentText())
+            start_month = int(myComboBox_startTime_month.currentText())
+            stop_month = int(myComboBox_stopTime_month.currentText())
+            timeType = myComboBox_indexType.currentText()
+            model_type = myComboBox_model.currentIndex()
+
+            if start_year > stop_year:
+                QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
+            else:
+                def strfList(l):
+                    return [str(x) for x in l]
+
+                param = ""
+                if model_type == 0:  # 二次指数平滑
+                    text, ok = QtGui.QInputDialog.getText(pr, '请输入α平滑常数', '1.时间序列比较平稳时，选择较小的α值，0.05-0.20\n' + \
+                                                          "2.时间序列有波动，但长期趋势没大的变化，可选稍大的α值，0.10-0.40。\n" + \
+                                                          "3.时间序列波动很大，长期趋势变化大有明显的上升或下降趋势时，宜选较大的α值，0.60-0.80。\n" + \
+                                                          "4.当时间序列是上升或下降序列，满足加性模型，α取较大值，0.60-1。\n")
+                    if ok:
+                        param = text
+                    else:
+                        QtGui.QMessageBox.warning(pr, "无法预测", "未输入α平滑常数", "确认")
+                        return
+                elif timeType == "月" and model_type == 2:  # 月 回归分析
+                    text, ok = QtGui.QInputDialog.getText(pr, '请输入温度', '请输入要预测月份的平均温度')
+                    if ok:
+                        param = text
+                    else:
+                        QtGui.QMessageBox.warning(pr, "无法预测", "未输入该月份温度", "确认")
+                        return
+
+                user_content = get_user_by_id(pr.nowUserId)
+                unit = "%s / %s · %s" % (user_content["gasUnit"], user_content["userUnit"], timeType)
+                res = model_predict_gasIndex(pr.nowUserId, start_year, start_month, stop_year, stop_month, timeType,
+                                             model_type, param)
+                if res[0]:
+                    predict_result = res[1]
+                    time_list = [t[0] for t in predict_result]
+                    index_list = [t[1] for t in predict_result]
+                    d = MyDialog(self)
+                    column_title = ["时间"] + ["%s" % y for y in time_list]
+                    data_list = [['用气指标（%s）' % unit] + strfList(index_list)]
+                    print(data_list)
+                    print(column_title)
+                    myTable_index = MyTable(d, data_list, column_title)
+                    myTable_index.resize(view_setting["BigTableWidth"], view_setting["BigTableHeight"])
+                    myTable_index.move(0, 0)
+                    myTable_index.resizeColumnsToContents()
+                    myTable_index.resizeRowsToContents()
+                    d.setWindowTitle("预测结果")
+                    d.setWindowModality(QtCore.Qt.ApplicationModal)
+                    d.exec_()
+
+                else:
+                    QtGui.QMessageBox.warning(pr, "预测失败", res[1], "确认")
+
+        self.connect(myButton_predict, QtCore.SIGNAL("clicked()"), predictButtonSlot)
+
 
     def selectionchange(self):
         sender = self.sender()
@@ -2294,6 +2568,39 @@ class MainWindow(QtGui.QMainWindow):
         for x in self.all_component['model_predict']:
             self.all_component['model_predict'][x].show()
 
+    def display_index_predict(self):
+        for k in self.all_component:
+            for x in self.all_component[k]:
+                self.all_component[k][x].hide()
+
+        userType_list = get_all_userType()
+        cb = self.all_component["index_predict"]["myComboBox_userType"]
+        cb.clear()
+        cb.addItems(userType_list)
+
+        for x in self.all_component['index_predict']:
+            self.all_component['index_predict'][x].show()
+
+        pr = self
+
+        def selectionChange():
+            if pr.all_component["index_predict"]["myComboBox_indexType"].currentIndex() == 0:  # 指标类型是年
+                pr.all_component["index_predict"]["myComboBox_startTime_month"].hide()
+                pr.all_component["index_predict"]["myComboBox_stopTime_month"].hide()
+                pr.all_component["index_predict"]["myLabel_month"].hide()
+                pr.all_component["index_predict"]["myLabel_month2"].hide()
+                pr.all_component["index_predict"]["myComboBox_model"].clear()
+                pr.all_component["index_predict"]["myComboBox_model"].addItems(["指数平滑", "灰色模型", "回归分析"])
+            elif pr.all_component["index_predict"]["myComboBox_indexType"].currentIndex() == 1:  # 指标类型是月
+                pr.all_component["index_predict"]["myComboBox_startTime_month"].show()
+                pr.all_component["index_predict"]["myComboBox_stopTime_month"].show()
+                pr.all_component["index_predict"]["myLabel_month"].show()
+                pr.all_component["index_predict"]["myLabel_month2"].show()
+                pr.all_component["index_predict"]["myComboBox_model"].clear()
+                pr.all_component["index_predict"]["myComboBox_model"].addItems(["指数平滑", "灰色模型", "回归分析"])
+
+        selectionChange()
+
     def center(self):
         screen = QtGui.QDesktopWidget().screenGeometry()
         size = self.geometry()
@@ -2722,7 +3029,7 @@ class MainWindow(QtGui.QMainWindow):
             if gas_index == -2:
                 QtGui.QMessageBox.warning(self, '查询失败', '该用户没有月用气数据', '确认')
                 return
-            myLabel_index.setText(('%.2f' % gas_index) + ' ' + user_content['gasUnit'] + '/' + user_content['userUnit']
+            myLabel_index.setText(('%.6f' % gas_index) + ' ' + user_content['gasUnit'] + '/' + user_content['userUnit']
                                   + '·' + myComboBox_indexType.currentText())
 
         myComboBox_indexType.currentIndexChanged.connect(on_indexType_change)
@@ -2845,7 +3152,8 @@ class MainWindow(QtGui.QMainWindow):
             index_list = get_index_of_user_in_times_from_database(self.nowUserId, myComboBox_indexType.currentText(),
                                                                   start_year, start_month, end_year, end_month)
             weather_list = get_weather_in_times_from_database(myComboBox_indexType.currentText(), start_year,
-                                                              start_month, end_year, end_month)
+                                                              start_month, 0, end_year, end_month, 0)
+            # print(index_list, weather_list)
             self.examine_index_result_slot(index_list, weather_list)
 
         myComboBox_indexType.currentIndexChanged.connect(on_indexType_change)
@@ -2869,6 +3177,14 @@ class MainWindow(QtGui.QMainWindow):
             row[1] = str(row[1]) + ' ' + unit
         myTable_index = MyTable(d, temp_index_list, ['日期', '用气指标'])
         myTable_index.move(0, 0)
+
+        flag = True
+        for w in weather_list:
+            if len(w) <= 3:
+                flag = False
+        if not flag:
+            weather_list = []
+
         myPlot_index = MyPlot(d, index_list, unit, weather_list, '指标折线图')
         myPlot_index.move(250, 0)
         d.setWindowTitle("结果查看")
