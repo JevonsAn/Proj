@@ -76,8 +76,6 @@ def get_user_gasIndex_year_and_month(user_id, timeType, start_time, stop_time):
         lt = []
         lt.append(timeChange(timeType, t))
         gasIndex = get_gas_index_from_database(user_id, timeType, *t)
-        if gasIndex == 0 or abs(gasIndex) <= 0.00001:
-            continue
         lt.append(gasIndex)
         gasIndex_list.append(lt)
     return gasIndex_list

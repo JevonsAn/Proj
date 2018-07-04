@@ -55,6 +55,7 @@ class MyLabel(QtGui.QLabel):
         self.resize(width, height)
 
 
+
 class MyLineEdit(QtGui.QLineEdit):
     def __init__(self, cl):
         """
@@ -156,7 +157,7 @@ class MyPainter(QtGui.QPainter):
 
 
 class MyPlot(pg.PlotWidget):
-    def __init__(self, parent, index_data, index_unit, weather_data, title=''):
+    def __init__(self, parent, index_data, index_unit, weather_data, title='', yTitle="指标"):
         x_dict = {x: index_data[x][0] for x in range(len(index_data))}
         axis = [(x, index_data[x][0]) for x in range(0, len(index_data), 5)]
         string_x_unit = pg.AxisItem(orientation='bottom')
@@ -169,10 +170,12 @@ class MyPlot(pg.PlotWidget):
         self.addItem(label)
         self.addLegend(size=(80, 80))
         self.showGrid(x=True, y=True, alpha=0.5)
-        self.plot(x=list(x_dict.keys()), y=[row[1] for row in index_data], pen='r', name='指标', symbolBrush=(255, 0, 0))
-        # if weather_data:
-        #     weather_plot = self.plot(x=list(x_dict.keys()), y=[row[3] for row in weather_data], pen='b', name='气温', symbolBrush=(0, 0, 255))
-        self.setLabel(axis='left', text='指标')
+        self.plot(x=list(x_dict.keys()), y=[row[1] for row in index_data], pen='r', name=yTitle,
+                  symbolBrush=(255, 0, 0))
+        if weather_data:
+            weather_plot = self.plot(x=list(x_dict.keys()), y=[row[4] for row in weather_data], pen='b', name='气温',
+                                     symbolBrush=(0, 0, 255))
+        self.setLabel(axis='left', text=yTitle)
         self.setLabel(axis='bottom', text='日期')
         self.setBackground(None)
         vLine = pg.InfiniteLine(angle=90, movable=False, )
@@ -188,21 +191,73 @@ class MyPlot(pg.PlotWidget):
                 pos_y = int(mousePoint.y())
                 # print(index)
                 if 0 <= index < len(index_data):
-                    # if weather_data:
-                    #     label.setHtml(
-                    #         "<p style='color:black'>日期：{0}</p>"
-                    #         "<p style='color:black'>指标：{1}{2}</p>"
-                    #         "<p style='color:black'>气温：{3}℃</p>".format(
-                    #             x_dict[index], index_data[index][1], index_unit, weather_data[index][3]))
-                    # else:
-                    label.setHtml(
-                        "<p style='color:black'>日期：{0}</p>"
-                        "<p style='color:black'>指标：{1}{2}</p>".format(
-                            x_dict[index], index_data[index][1], index_unit))
+                    if weather_data:
+                        label.setHtml(
+                            "<p style='color:black'>日期：{0}</p>"
+                            "<p style='color:black'>{4}：{1}{2}</p>"
+                            "<p style='color:black'>气温：{3}℃</p>".format(
+                                x_dict[index], "%.4f" % index_data[index][1], index_unit,
+                                               "%.4f" % weather_data[index][3], yTitle))
+                    else:
+                        label.setHtml(
+                            "<p style='color:black'>日期：{0}</p>"
+                            "<p style='color:black'>{3}：{1}{2}</p>".format(
+                                x_dict[index], "%.4f" % index_data[index][1], index_unit, yTitle))
                     label.setPos(mousePoint.x(), mousePoint.y())
                 vLine.setPos(mousePoint.x())
                 hLine.setPos(mousePoint.y())
         self.proxy = pg.SignalProxy(self.scene().sigMouseMoved, rateLimit=30, slot=mouseMoved)
+
+
+class LoginWindow(QtGui.QMainWindow):
+    def __init__(self):
+        QtGui.QMainWindow.__init__(self)
+
+        font = QtGui.QFont()
+        # font.setPixelSize(18)
+        font.setPointSize(15)
+        self.setFont(font)
+
+        self.success = False
+        width = 500
+        height = 300
+        self.resize(width, height)
+        self.center()
+        self.setWindowTitle('用气指标软件——登录')
+        self.setWindowIcon(QtGui.QIcon('../static/icons/icon0.jpg'))
+        myLabel_adminName = MyLabel('登录账号：', self)
+        myLabel_adminName.move(100, 60)
+
+        myLineEdit_adminName = MyLineEdit(self)
+        myLineEdit_adminName.move(200, 60)
+
+        myLabel_password = MyLabel('密码：', self)
+        myLabel_password.move(100, 120)
+
+        myLineEdit_password = MyLineEdit(self)
+        myLineEdit_password.move(200, 120)
+        myLineEdit_password.setEchoMode(QtGui.QLineEdit.Password)
+
+        def maintain_data_login():
+            username = myLineEdit_adminName.text()
+            password = myLineEdit_password.text()
+            if username and password:
+                if username == "login" and password == "123456":
+                    self.success = True
+                    self.close()
+                else:
+                    QtGui.QMessageBox.warning(self, '登录失败', '密码错误', '确定')
+            else:
+                QtGui.QMessageBox.warning(self, '登录失败', '用户名和密码不能为空!', '确定')
+
+        myButton_login = MyButton('登录', self)
+        myButton_login.move(100, 180)
+        self.connect(myButton_login, QtCore.SIGNAL('clicked()'), maintain_data_login)
+
+    def center(self):
+        screen = QtGui.QDesktopWidget().screenGeometry()
+        size = self.geometry()
+        self.move((screen.width() - size.width()) / 2, (screen.height() - size.height()) / 2)
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -222,13 +277,17 @@ class MainWindow(QtGui.QMainWindow):
 
         self.statusBar()
 
+        font = QtGui.QFont()
+        font.setPixelSize(20)
+        self.setFont(font)
+
         menubar = self.menuBar()
-        file = menubar.addMenu('&软件')
-        signin_menu = menubar.addMenu('&登陆用户')
-        user_menu = menubar.addMenu('&用户操作')
-        data_menu = menubar.addMenu('&数据操作')
-        yongqi_menu = menubar.addMenu('&用气指标')
-        xishu_menu = menubar.addMenu('&不均匀系数')
+        file = menubar.addMenu('软件')
+        # signin_menu = menubar.addMenu('&登陆用户')
+        user_menu = menubar.addMenu('用户操作')
+        data_menu = menubar.addMenu('数据操作')
+        yongqi_menu = menubar.addMenu('用气指标')
+        xishu_menu = menubar.addMenu('不均匀系数')
 
         exit = QtGui.QAction('退出', self)
         exit.setShortcut('Ctrl+Q')
@@ -865,7 +924,7 @@ class MainWindow(QtGui.QMainWindow):
                     stop_day = int(text2.strip().split("日~")[-1][:-1])
                     stop_month = int(myComboBox_stopTime_month.currentText())
                     stop_year = int(myComboBox_stopTime_year.currentText())
-                    if stop_day >= stop_day0:
+                    if stop_day <= stop_day0:
                         stop_month += 1
                         if stop_month > 12:
                             stop_month = stop_month % 12
@@ -1233,7 +1292,7 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 user = get_user_by_id(pr.nowUserId)
 
-                print(pr.nowUserId, timeType, start_time, stop_time)
+                # print(pr.nowUserId, timeType, start_time, stop_time)
                 res = get_uneven_list(pr.nowUserId, timeType, start_time, stop_time)
 
                 if res[0]:
@@ -1250,7 +1309,16 @@ class MainWindow(QtGui.QMainWindow):
                                                                           int(start_time[:4]),
                                                                           int(start_time[4:6]), 0, int(stop_time[:4]),
                                                                           int(stop_time[4:6]), 0)
-                    # print(uneven_list, weather_list)
+                    uneven_flag = False
+                    if len(uneven_list) == 0:
+                        uneven_flag = True
+                    for u in uneven_list:
+                        if len(u) < 2:
+                            uneven_flag = True
+                            break
+                    if uneven_flag:
+                        QtGui.QMessageBox.warning(pr, "出错", "该时间内数据缺失！", "确认")
+                        return
 
                     d = MyDialog(self)
                     user_content = get_user_by_id(self.nowUserId)
@@ -1259,7 +1327,7 @@ class MainWindow(QtGui.QMainWindow):
                     # temp_index_list = deepcopy(uneven_list)
                     # for row in temp_index_list:
                     #     row[1] = str(row[1]) + ' ' + unit
-                    myTable_index = MyTable(d, uneven_list, ['日期', '不均匀系数'])
+                    myTable_index = MyTable(d, [[x[0], "%.4f" % x[1]] for x in uneven_list], ['日期', '不均匀系数'])
                     myTable_index.move(0, 0)
 
                     flag = True
@@ -1269,7 +1337,27 @@ class MainWindow(QtGui.QMainWindow):
                     if not flag:
                         weather_list = []
 
-                    myPlot_index = MyPlot(d, uneven_list, "", weather_list, '不均匀系数折线图')
+                    if flag and weather_list:
+                        index_re_list = [x[1] for x in uneven_list]
+                        weather_re_list = [x[3] for x in weather_list]
+                        jicha_index = max(index_re_list) - min(index_re_list)
+                        print(flag, weather_re_list, weather_list)
+                        jicha_weather = max(weather_re_list) - min(weather_re_list)
+
+                        avg_index = sum(index_re_list) / len(index_re_list)
+                        bili = jicha_index / jicha_weather
+                        weather_re_list = [bili * x for x in weather_re_list]
+
+                        avg_weather = sum(weather_re_list) / len(weather_re_list)
+
+                        pingyi = avg_index - avg_weather
+
+                        weather_re_list = [x + pingyi for x in weather_re_list]
+                        # print(bili, pingyi, weather_re_list, index_re_list, avg_weather, avg_index)
+
+                        weather_list = [[*x, bili * x[3] + pingyi] for x in weather_list]
+
+                    myPlot_index = MyPlot(d, uneven_list, "", weather_list, '不均匀系数折线图', "不均匀系数")
                     myPlot_index.move(250, 0)
                     d.setWindowTitle("不均匀系数结果查看")
                     d.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -1542,7 +1630,7 @@ class MainWindow(QtGui.QMainWindow):
                     userType = myComboBox_userType.currentText()
                     userName = myComboBox_userName.currentText()
                     # print((userType, userName, start_time, timeType, res))
-                    myLabel_index.setText("%s-%s用户的%s不均匀系数为%s" % (userType, userName, timeType, res[1]))
+                    myLabel_index.setText("%s-%s用户的%s不均匀系数为%.4f" % (userType, userName, timeType, res[1]))
                 else:
                     QtGui.QMessageBox.warning(pr, "查询失败", res[1], "确认")
         self.connect(myButton_export, QtCore.SIGNAL("clicked()"), dataExportButtonSlot)
@@ -1658,7 +1746,7 @@ class MainWindow(QtGui.QMainWindow):
                 QtGui.QMessageBox.warning(pr, "输入有误", "某方案增长百分比不是整数", "确认")
             else:
                 def strfList(l):
-                    return [str(x) for x in l]
+                    return ["%s" % x for x in l]
 
                 user_content = get_user_by_id(pr.nowUserId)
                 res = human_predict_userNum(pr.nowUserId, start_year, stop_year, float(high) * 0.01, float(mid) * 0.01,
@@ -1904,7 +1992,7 @@ class MainWindow(QtGui.QMainWindow):
                 QtGui.QMessageBox.warning(pr, "日期选择有误", "开始时间不能大于结束时间", "确认")
             else:
                 def strfList(l):
-                    return [str(x) for x in l]
+                    return ["%s" % x for x in l]
 
                 param = ""
                 if model_type == 0:  # 二次指数平滑
@@ -1936,8 +2024,8 @@ class MainWindow(QtGui.QMainWindow):
                     d = MyDialog(self)
                     column_title = ["时间"] + ["%s" % y for y in time_list]
                     data_list = [['用气指标（%s）' % unit] + strfList(index_list)]
-                    print(data_list)
-                    print(column_title)
+                    # print(data_list)
+                    # print(column_title)
                     myTable_index = MyTable(d, data_list, column_title)
                     myTable_index.resize(view_setting["BigTableWidth"], view_setting["BigTableHeight"])
                     myTable_index.move(0, 0)
@@ -1951,7 +2039,6 @@ class MainWindow(QtGui.QMainWindow):
                     QtGui.QMessageBox.warning(pr, "预测失败", res[1], "确认")
 
         self.connect(myButton_predict, QtCore.SIGNAL("clicked()"), predictButtonSlot)
-
 
     def selectionchange(self):
         sender = self.sender()
@@ -2255,6 +2342,13 @@ class MainWindow(QtGui.QMainWindow):
             if userNum == '':
                 QtGui.QMessageBox.warning(d, "数据录入失败", "用户数不能为空！", "确定")
                 return
+            nowtime = ("%4d%2d%2d%2d" % (
+            datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day,
+            datetime.datetime.now().hour))
+            thistime = ("%4d%2d%2d%2d" % (year, month, day, hour))
+            if nowtime < thistime:
+                QtGui.QMessageBox.warning(d, "数据录入失败", "不能插入未来时间的数据！", "确定")
+                return
             try:
                 gasNum = float(gasNum)
                 userNum = int(userNum)
@@ -2271,7 +2365,7 @@ class MainWindow(QtGui.QMainWindow):
 
         d.setWindowTitle("录入用户数据")
         d.setWindowModality(QtCore.Qt.ApplicationModal)
-        print(d.parent().nowUserId)
+        # print(d.parent().nowUserId)
         d.exec_()
 
     def display_create_user(self):
@@ -2945,6 +3039,7 @@ class MainWindow(QtGui.QMainWindow):
                 j.hide()
         for i in self.all_component['maintain_data'].values():
             i.show()
+        self.all_component['maintain_data']['myLineEdit_password'].setText("")
 
     def search_gas_index_fuc(self):
         search_gas_index_component_dict = {}
@@ -3029,7 +3124,7 @@ class MainWindow(QtGui.QMainWindow):
             if gas_index == -2:
                 QtGui.QMessageBox.warning(self, '查询失败', '该用户没有月用气数据', '确认')
                 return
-            myLabel_index.setText(('%.6f' % gas_index) + ' ' + user_content['gasUnit'] + '/' + user_content['userUnit']
+            myLabel_index.setText(('%.4f' % gas_index) + ' ' + user_content['gasUnit'] + '/' + user_content['userUnit']
                                   + '·' + myComboBox_indexType.currentText())
 
         myComboBox_indexType.currentIndexChanged.connect(on_indexType_change)
@@ -3153,7 +3248,7 @@ class MainWindow(QtGui.QMainWindow):
                                                                   start_year, start_month, end_year, end_month)
             weather_list = get_weather_in_times_from_database(myComboBox_indexType.currentText(), start_year,
                                                               start_month, 0, end_year, end_month, 0)
-            # print(index_list, weather_list)
+            print(index_list, weather_list)
             self.examine_index_result_slot(index_list, weather_list)
 
         myComboBox_indexType.currentIndexChanged.connect(on_indexType_change)
@@ -3174,16 +3269,38 @@ class MainWindow(QtGui.QMainWindow):
                self.all_component['examine_index_result']['myComboBox_indexType'].currentText()
         temp_index_list = deepcopy(index_list)
         for row in temp_index_list:
-            row[1] = str(row[1]) + ' ' + unit
-        myTable_index = MyTable(d, temp_index_list, ['日期', '用气指标'])
+            row[1] = "%.4f" % row[1]
+        myTable_index = MyTable(d, temp_index_list, ['日期', '用气指标(%s)' % unit])
+        myTable_index.resizeColumnsToContents()
         myTable_index.move(0, 0)
 
         flag = True
         for w in weather_list:
             if len(w) <= 3:
                 flag = False
+                break
+
         if not flag:
             weather_list = []
+
+        if flag and weather_list:
+            index_re_list = [x[1] for x in index_list]
+            weather_re_list = [x[3] for x in weather_list]
+            jicha_index = max(index_re_list) - min(index_re_list)
+            jicha_weather = max(weather_re_list) - min(weather_re_list)
+
+            avg_index = sum(index_re_list) / len(index_re_list)
+            bili = jicha_index / jicha_weather
+            weather_re_list = [bili * x for x in weather_re_list]
+
+            avg_weather = sum(weather_re_list) / len(weather_re_list)
+
+            pingyi = avg_index - avg_weather
+
+            weather_re_list = [x + pingyi for x in weather_re_list]
+            # print(bili, pingyi, weather_re_list, index_re_list, avg_weather, avg_index)
+
+            weather_list = [[*x, bili * x[3] + pingyi] for x in weather_list]
 
         myPlot_index = MyPlot(d, index_list, unit, weather_list, '指标折线图')
         myPlot_index.move(250, 0)

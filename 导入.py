@@ -18,6 +18,23 @@ import datetime
 #     except Exception as e:
 #         print(datetime.date(year, month, day), mx, mn, avg, e)
 
+# data = xlrd.open_workbook('C:\\Users\\JevonsAn\\Desktop\\测试数据\\02-07天气温度.xlsx')
+# table = data.sheets()[0]
+# nrows = table.nrows
+# for i in range(1, nrows):
+#     row = table.row_values(i)
+#     year = int(row[0])
+#     month = int(row[1])
+#     day = int(row[2])
+#     mx = row[3]
+#     mn = row[4]
+#     avg = row[5]
+#     # print(datetime.date(year, month, day), mx, mn, avg)
+#     try:
+#         insert_weather(datetime.date(year, month, day), mx, mn, avg)
+#     except Exception as e:
+#         print(datetime.date(year, month, day), mx, mn, avg, e)
+
 # insert_user("居民", "小时", "万立方米", "人")  12
 # insert_user("采暖", "用户", "万立方米", "万m2面积") 13
 # insert_user("电厂", "郑常庄", "立方米", "kw*h")14
@@ -38,8 +55,7 @@ import datetime
 #     # print(13, gas, userNum, year, month, day, 0)
 #     insert_user_data(13, gas, userNum, year, month, day, 0)
 
-
-data = xlrd.open_workbook('C:\\Users\\JevonsAn\\Desktop\\测试数据\\2014.1.1居民小时用气量.xlsx')
+data = xlrd.open_workbook('C:\\Users\\JevonsAn\\Desktop\\测试数据\\采暖日用气量02-07.xlsx')
 table = data.sheets()[0]
 nrows = table.nrows
 for i in range(1, nrows):
@@ -48,11 +64,25 @@ for i in range(1, nrows):
     year = int(row[1])
     month = int(row[2])
     day = int(row[3])
-    hour = int(row[4].split("~")[-1])
-    gas = float(row[-1])
-    userNum = 1
-    # print(12, gas, userNum, year, month, day, hour)
-    insert_user_data(12, gas, userNum, year, month, day, hour)
+    gas = float(row[-2])
+    userNum = int(row[-1])
+    # print(13, gas, userNum, year, month, day, 0)
+    insert_user_data(13, gas, userNum, year, month, day, 0)
+
+# data = xlrd.open_workbook('C:\\Users\\JevonsAn\\Desktop\\测试数据\\2014.1.1居民小时用气量.xlsx')
+# table = data.sheets()[0]
+# nrows = table.nrows
+# for i in range(1, nrows):
+#     row = table.row_values(i)
+#     # print(row)
+#     year = int(row[1])
+#     month = int(row[2])
+#     day = int(row[3])
+#     hour = int(row[4].split("~")[-1])
+#     gas = float(row[-1])
+#     userNum = 1
+#     # print(12, gas, userNum, year, month, day, hour)
+#     insert_user_data(12, gas, userNum, year, month, day, hour)
 
 # data = xlrd.open_workbook('C:\\Users\\JevonsAn\\Desktop\\测试数据\\电厂日用气量13-16.xlsx')
 # table = data.sheets()[0]

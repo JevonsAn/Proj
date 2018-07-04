@@ -452,9 +452,11 @@ def insert_user(userType, userName, gasUnit, userUnit, remark=''):
 
 def delete_user(id):
     mysqlserver = Mysql()
+    sql0 = 'delete from userdata where user_id = %s'
     sql = "DELETE FROM `data`.`user` WHERE `id` = %s"
     res = [True, '']
     try:
+        mysqlserver.exe(sql0, (int(id),))
         mysqlserver.exe(sql, (int(id),))
         mysqlserver.commit()
     except Exception as e:

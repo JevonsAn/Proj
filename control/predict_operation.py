@@ -34,13 +34,21 @@ def grey_predict(X, Ys, P):
             B[i][0] = (tmp[i] + tmp[i + 1]) * (-1.0) / 2
         Y = np.transpose(x[1:])
         BT = np.transpose(B)
-        a = np.linalg.inv(np.dot(BT, B))
+
+        tt = np.dot(BT, B)
+        # print(tt)
+        m = 0.000001
+
+        a = np.linalg.inv(tt + np.eye(tt.shape[1]) * m)
         a = np.dot(a, BT)
         a = np.dot(a, Y)
         a = np.transpose(a)
+        a += np.zeros(a.shape) + m
+
         return a
 
     def GM_Model(X0, a, tmp):  # GM(1,1)模型
+        # print(list(a))
         # print(X0, a, tmp)
         A = np.ones(len(tmp))
         for i in range(len(A)):
@@ -64,9 +72,6 @@ def grey_predict(X, Ys, P):
     XK = GM_Model(X0, a, t_P)
     results = [XK[i] - XK[i - 1] for i in range(1, len(XK))]
     return results
-    # print(P)
-    # # print(XK)
-    # print(results)
 
 
 def double_smooth(alpha, x, y, p):
@@ -126,9 +131,9 @@ def human_predict_userNum(user_id, start_year, stop_year, high, mid, low):
         res[0] = False
         res[1] = "预测开始年份的上一年数据缺失"
     else:
-        high_dict = [int(last_num * (1 + high) ** (y - start_year)) for y in range(start_year, stop_year + 1)]
-        mid_dict = [int(last_num * (1 + mid) ** (y - start_year)) for y in range(start_year, stop_year + 1)]
-        low_dict = [int(last_num * (1 + low) ** (y - start_year)) for y in range(start_year, stop_year + 1)]
+        high_dict = [int(last_num * (1 + high) ** (y - start_year + 1)) for y in range(start_year, stop_year + 1)]
+        mid_dict = [int(last_num * (1 + mid) ** (y - start_year + 1)) for y in range(start_year, stop_year + 1)]
+        low_dict = [int(last_num * (1 + low) ** (y - start_year + 1)) for y in range(start_year, stop_year + 1)]
         res[1] = (high_dict, mid_dict, low_dict)
     return res
 
@@ -204,24 +209,45 @@ def model_predict_gasIndex(user_id, start_year, start_month, stop_year, stop_mon
             res[0] = False
             res[1] = "没有预测开始年份之前的数据"
         else:
-            predict_months = [(start_year, m) for m in range(start_month, 13)] \
-                             + [(x, m) for x in range(start_year + 1, stop_year) for m in range(1, 13)] \
+            predict_months = []
+            if start_year < stop_year:
+                predict_months = [(start_year, m) for m in range(start_month, 13)] \
+                                 + [(x, m) for x in range(start_year + 1, stop_year) for m in range(1, 13)] \
                              + [(stop_year, m) for m in range(1, stop_month + 1)]
+            else:
+                predict_months = [(start_year, m) for m in range(start_month, stop_month + 1)]
+
+
             predict_results = []
             if model_type == 2:  # 二次多项式回归 用温度
-                weather_list = get_weather_in_times_from_database("月", start_year, start_month, 0, stop_year,
-                                                                  stop_month, 0)
+                weather_list = get_weather_in_times_from_database("月", 2000, 1, 0, start_year - 1,
+                                                                  12, 0)
+                # print(weather_list)
                 weather_dict = {x[0].replace("/", "-"): x[3] for x in weather_list if len(x) >= 3}
-                last_weather = []
-                last_numbers = []
-                for t in year_numbers:
-                    if t[0] in weather_dict:
-                        last_weather.append(weather_dict[t[0]])
-                        last_numbers.append(t[1])
-                cofes = polyfit(last_weather, last_numbers)
-                temprature = float(param)
-                r = polyval(cofes, [temprature])
-                predict_results.append(["%4d-%d" % (start_year, stop_month), "%.4f" % r[0]])
+                # print(weather_dict)
+
+                for m in predict_months:
+                    this_month = m[1]
+                    last_months = []
+                    numbers = []
+                    for t in year_numbers:
+                        if int(t[0].split("-")[-1]) == this_month and t[1] != 0:
+                            last_months.append(t[0])
+                            numbers.append(t[1])
+
+                    last_weather = []
+                    for t in last_months:
+                        if t in weather_dict:
+                            last_weather.append(weather_dict[t])
+
+                    # print(last_months)
+                    # print(numbers)
+                    # print(last_weather)
+
+                    cofes = polyfit(last_weather, numbers)
+                    temprature = float(param)
+                    r = polyval(cofes, [temprature])
+                    predict_results.append(["%4d-%d" % (start_year, stop_month), "%.4f" % r[0]])
 
             elif model_type == 0 or model_type == 1:
                 for m in predict_months:
@@ -229,7 +255,7 @@ def model_predict_gasIndex(user_id, start_year, start_month, stop_year, stop_mon
                     last_months = []
                     numbers = []
                     for t in year_numbers:
-                        if int(t[0].split("-")[-1]) == this_month:
+                        if int(t[0].split("-")[-1]) == this_month and t[1] != 0:
                             last_months.append(int(t[0].split("-")[0]))
                             numbers.append(t[1])
 
@@ -237,14 +263,16 @@ def model_predict_gasIndex(user_id, start_year, start_month, stop_year, stop_mon
                         alpha = float(param)
                         if len(last_months) <= 2:
                             res[0] = False
-                            res[1] = "数据不足，指数平滑预测至少需要有之前三年的数据。"
+                            res[1] = "数据不足，指数平滑预测至少需要有之前三年的数据。\n(数据为0不能用来预测)"
                             return res
+                        # print(alpha, last_months, numbers, [m[0]])
                         r = double_smooth(alpha, last_months, numbers, [m[0]])
                         predict_results.append(["%4d-%d" % m, "%.4f" % r[0]])
                     elif model_type == 1:  # 灰色模型
+                        # print(last_months, numbers, [m[0]])
                         if len(last_months) <= 2:
                             res[0] = False
-                            res[1] = "数据不足，灰色模型至少需要有之前三年的数据。"
+                            res[1] = "数据不足，灰色模型至少需要有之前三年的数据。\n(数据为0不能用来预测)"
                             return res
                         r = grey_predict(last_months, numbers, [m[0]])
                         predict_results.append(["%4d-%d" % m, "%.4f" % r[0]])

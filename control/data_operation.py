@@ -90,11 +90,15 @@ def export_gasIndex(timeType, start_time, stop_time, file_path):
         if timeType == "年":
             all_time[timeType] = [(x, 0) for x in range(int(start_time), int(stop_time) + 1)]
         elif timeType == "月":
-            all_time[timeType] = [(int(start_time[:4]), m) for m in range(int(start_time[4:]), 13)] \
-                                 + [(x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4])) for m in
-                                    range(1, 13)] \
-                                 + [(int(stop_time[:4]), m) for m in range(1, int(stop_time[4:]) + 1) if
-                                    start_time[:4] < stop_time[:4]]
+            if start_time[:4] < stop_time[:4]:
+                all_time[timeType] = ["%4d%2d" % (int(start_time[:4]), m) for m in range(int(start_time[4:6]), 13)] \
+                                     + ["%4d%2d" % (x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4]))
+                                        for m
+                                        in range(1, 13)] \
+                                     + ["%4d%2d" % (int(stop_time[:4]), m) for m in range(1, int(stop_time[4:6]) + 1)]
+            else:
+                all_time[timeType] = ["%4d%2d" % (int(start_time[:4]), m) for m in
+                                      range(int(start_time[4:6]), int(stop_time[4:6]) + 1)]
 
         for user in user_list:
             for t in all_time[timeType]:
@@ -103,9 +107,7 @@ def export_gasIndex(timeType, start_time, stop_time, file_path):
                 lt.append(user["userName"])
                 lt.append(timeChange(timeType, t))
                 gasIndex = get_gas_index_from_database(user["id"], timeType, *t)
-                if gasIndex == 0 or abs(gasIndex) <= 0.00001:
-                    continue
-                lt.append(gasIndex)
+                lt.append("%.4f" % gasIndex)
                 lt.append(user["unit"] + " · %s" % timeType)
                 gasIndex_list.append(lt)
 
@@ -179,10 +181,14 @@ def export_uneven(user_id, timeType, start_time, stop_time, file_path):
 
         all_time = {}
         if timeType == "月":
-            all_time[timeType] = ["%4d%2d" % (int(start_time[:4]), m) for m in range(int(start_time[4:6]), 13)] \
-                                 + ["%4d%2d" % (x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4])) for m
+            if start_time[:4] < stop_time[:4]:
+                all_time[timeType] = ["%4d%2d" % (int(start_time[:4]), m) for m in range(int(start_time[4:6]), 13)] \
+                                     + ["%4d%2d" % (x, m) for x in range(int(start_time[:4]) + 1, int(stop_time[:4])) for m
                                     in range(1, 13)] \
-                                 + ["%4d%2d" % (int(stop_time[:4]), m) for m in range(1, int(stop_time[4:6]) + 1)]
+                                     + ["%4d%2d" % (int(stop_time[:4]), m) for m in range(1, int(stop_time[4:6]) + 1)]
+            else:
+                all_time[timeType] = ["%4d%2d" % (int(start_time[:4]), m) for m in
+                                      range(int(start_time[4:6]), int(stop_time[4:6]) + 1)]
         elif timeType == "日":
             dayfrom = datetime.datetime.strptime(start_time[:8].replace(" ", "0"), '%Y%m%d').date()
             dayto = datetime.datetime.strptime(stop_time[:8].replace(" ", "0"), '%Y%m%d').date()
@@ -208,22 +214,22 @@ def export_uneven(user_id, timeType, start_time, stop_time, file_path):
             all_time[timeType] = []
             for i in range(dayscount + 1):
                 d = dayfrom + datetime.timedelta(days=i)
-                for h in range(1, 25):
+                for h in range(1, int(stop_time[8:10]) + 1):
                     all_time[timeType].append("%4d%2d%2d%2d" % (d.year, d.month, d.day, h))
 
         gasIndex_list = []
-        print(all_time[timeType])
+        # print(all_time[timeType])
         for t in all_time[timeType]:
             lt = []
             # lt.append(user["userType"])
             # lt.append(user["userName"])
             lt.append(timeChange(timeType, t))
             lres = search_uneven(user_id, timeType, t, time_gas)
-            print(lres)
+            # print(lres)
             if lres[0] is False:
                 continue
             else:
-                lt.append(lres[1])
+                lt.append("%.4f" % lres[1])
             gasIndex_list.append(lt)
 
         export_to_file(gasIndex_list, file_path)
